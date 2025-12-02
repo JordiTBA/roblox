@@ -88,7 +88,7 @@ local function start_leveling()
             local nameClean = clean:match("^(%S+)")
                     print("Checking pet:", nameClean, "with weight:", weight)
                     if weight and weight >= weight_to_remove then
-                        Rayfield:Notify({Title = "Auto Level", Content = "Removing " .. nameClean .. " (".. weight .. "kg)", Duration = 2})
+                        Rayfield:Notify({Title = "Auto Level", Content = "Removing " .. nameClean and nameClean or "Pet" .. " (".. weight .. "kg)", Duration = 2})
                         
                         local tombolPickup = frame_weight.Dropdown.Main.Main.PICKUP_BUTTON.Holder.Main:FindFirstChildWhichIsA("TextButton")
                         if tombolPickup then
