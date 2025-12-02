@@ -83,7 +83,9 @@ local function start_leveling()
 
                     local weight = tonumber(string.match(tostring(weightText), "%d+%.?%d*"))
                     local nameRaw = playerGui.PetUI.PetCard.Main.Holder.Header.PET_TEXT.Text
-                    local nameClean = nameRaw:gsub("<[^>]->", ""):match("^(%S+)")
+                    print("Raw pet name:", nameRaw)
+                                local clean = nameRaw:gsub("<[^>]->", "")
+            local nameClean = clean:match("^(%S+)")
                     print("Checking pet:", nameClean, "with weight:", weight)
                     if weight and weight >= weight_to_remove then
                         Rayfield:Notify({Title = "Auto Level", Content = "Removing " .. nameClean .. " (".. weight .. "kg)", Duration = 2})
