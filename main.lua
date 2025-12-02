@@ -64,13 +64,13 @@ local function start_leveling()
     
     if not playerGui:FindFirstChild("ActivePetUI") then return end
     
-    local sensor = playerGui.ActivePetUI.Frame.Opener.SENSOR
+    local sensor = LocalPlayer_upvr.PlayerGui.ActivePetUI.Frame.Opener.SENSOR
 
     if sensor then
         firesignal(sensor.MouseButton1Click)
         task.wait(1)
 
-        local scrollFrame = LocalPlayer_upvr.ActivePetUI.Frame.Main.PetDisplay.ScrollingFrame
+        local scrollFrame = LocalPlayer_upvr.PlayerGui.ActivePetUI.Frame.Main.PetDisplay.ScrollingFrame
         for _, frame_weight in pairs(scrollFrame:GetChildren()) do
             if frame_weight:FindFirstChild("Dropdown") then
                 local tombolView = frame_weight.Dropdown.Main.Main.VIEW_BUTTON.Holder.Main:FindFirstChildWhichIsA("TextButton")
@@ -78,11 +78,11 @@ local function start_leveling()
                     firesignal(tombolView.Activated)
                     task.wait(0.5) 
 
-                    local statsHolder = LocalPlayer_upvr.PetUI.PetCard.Main.Holder.Stats.Holder
+                    local statsHolder = LocalPlayer_upvr.PlayerGui.PetUI.PetCard.Main.Holder.Stats.Holder
                     local weightText = statsHolder:GetChildren()[5].PET_WEIGHT.Text
 
                     local weight = tonumber(string.match(tostring(weightText), "%d+%.?%d*"))
-                    local nameRaw = LocalPlayer_upvr.PetUI.PetCard.Main.Holder.Header.PET_TEXT.Text
+                    local nameRaw = LocalPlayer_upvr.PlayerGui.PetUI.PetCard.Main.Holder.Header.PET_TEXT.Text
                     print("Raw pet name:", nameRaw)
                                 local clean = nameRaw:gsub("<[^>]->", "")
             local nameClean = clean:match("^(%S+)")
