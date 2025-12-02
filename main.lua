@@ -92,11 +92,13 @@ local function start_leveling()
                         if tombolPickup then
                             firesignal(tombolPickup.Activated)
                             task.wait(0.5)
-                            
+                            print("finding pets")
                             for _, fullString in pairs(selectedPets) do
                                 if fullString:find(nameClean) then
                                     local petUUID = select_pet(nameClean)
+                                    print("Selected Pet UUID:", petUUID)
                                     if petUUID then
+                                        print("Placing pet:", nameClean)
                                         place_pet(petUUID)
                                     end
                                     break 
