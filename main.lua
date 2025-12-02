@@ -78,11 +78,11 @@ local function start_leveling()
                     firesignal(tombolView.Activated)
                     task.wait(0.5) 
 
-                    local statsHolder = playerGui.PetUI.PetCard.Main.Holder.Stats.Holder
+                    local statsHolder = LocalPlayer_upvr.PetUI.PetCard.Main.Holder.Stats.Holder
                     local weightText = statsHolder:GetChildren()[5].PET_WEIGHT.Text
 
                     local weight = tonumber(string.match(tostring(weightText), "%d+%.?%d*"))
-                    local nameRaw = playerGui.PetUI.PetCard.Main.Holder.Header.PET_TEXT.Text
+                    local nameRaw = LocalPlayer_upvr.PetUI.PetCard.Main.Holder.Header.PET_TEXT.Text
                     print("Raw pet name:", nameRaw)
                                 local clean = nameRaw:gsub("<[^>]->", "")
             local nameClean = clean:match("^(%S+)")
