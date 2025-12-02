@@ -70,7 +70,7 @@ local function start_leveling()
         firesignal(sensor.MouseButton1Click)
         task.wait(1)
 
-        local scrollFrame = playerGui.ActivePetUI.Frame.Main.PetDisplay.ScrollingFrame
+        local scrollFrame = LocalPlayer_upvr.ActivePetUI.Frame.Main.PetDisplay.ScrollingFrame
         for _, frame_weight in pairs(scrollFrame:GetChildren()) do
             if frame_weight:FindFirstChild("Dropdown") then
                 local tombolView = frame_weight.Dropdown.Main.Main.VIEW_BUTTON.Holder.Main:FindFirstChildWhichIsA("TextButton")
