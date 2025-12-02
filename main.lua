@@ -1,6 +1,7 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+print("req")
+local Rayfield = loadstring(game:HttpGetAsync("https://sirius.menu/rayfield"))()
 getgenv().Leveling = false
-
+print("creating")
 local Window =
     Rayfield:CreateWindow(
     {
