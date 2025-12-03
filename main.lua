@@ -29,6 +29,10 @@ local petsFolder = game.Players.LocalPlayer.Backpack
 local petList = {}
 local selectedPets = {}
 local weight_to_remove = 0 
+-- // Blacklist Variables & Helper // --
+getgenv().blacklistedUUIDs = {} -- This table will store the UUIDs of pets you selected
+local ActivePetMap = {} -- Maps the Dropdown Display String -> Real UUID
+
 local Workspace_upvr = game:GetService("Workspace")
 local UserInputService_upvr = game:GetService("UserInputService")
 local LocalPlayer_upvr = game:GetService("Players").LocalPlayer
@@ -44,11 +48,8 @@ local PetUtilities_upvr = require(ReplicatedStorage.Modules.PetServices.PetUtili
 local PetsService_upvr_2 = require(ReplicatedStorage.Modules.PetServices.PetsService)
 -- // Helper Functions // --
 local function select_pet(name)
-    print("Mencari pet dengan nama: " .. name)
     for index, pets in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-        print( pets:GetAttribute("PetType") and "lkontol"..pets.Name:match("^(.-)%s*%[") or "awa")
         if pets:GetAttribute("PetType") and pets.Name:match("^(.-)%s*%[") == name then
-            print("ini nama petr"..pets.Name)
             return pets:GetAttribute("PET_UUID")
         end
     end
@@ -88,6 +89,15 @@ local function calculate_weight(var233)
         PetUtilities_upvr:CalculateWeight(var233.PetData.BaseWeight or 1, math.min(var233.PetData.Level or 1, 100))
     )
 end
+local function check_blacklist(UUID)
+    for _, blacklistedUUID in pairs(getgenv().blacklistedUUIDs) do
+        if UUID == blacklistedUUID then
+            return true
+        end
+    end
+    return false
+end 
+
 local function start_leveling()
 task.spawn(
 
@@ -107,7 +117,7 @@ task.spawn(
                 local pID = pet.UUID or "No UUID"
                 local weight = tonumber(calculate_weight(pet))
                 print(string.format("[%d] %s | Type: %s | ID: %s | Weight: %.2fkg", i, pName, pType, pID, weight))
-                if weight >= weight_to_remove then
+                if weight >= weight_to_remove and not check_blacklist(pet.UUID) then
                     PetsService_upvr_2:UnequipPet(pet.UUID)
                     Rayfield:Notify({
                         Title = "Auto Level",
@@ -224,5 +234,61 @@ Tab:CreateToggle({
                 end
             end)
         end
+    end
+})
+
+local function getActivePetsList()
+    local list = {}
+    ActivePetMap = {} -- Reset map on refresh
+
+    if PetUtilities then
+        local success, myActivePets = pcall(function()
+            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+        end)
+        
+        if success and myActivePets then
+            for _, pet in pairs(myActivePets) do
+                local pName = (pet.PetData and pet.PetData.Name) or "Unnamed"
+                -- Utilizing your existing calculate_weight function
+                local weight = calculate_weight(pet) 
+                
+                -- Create a unique display string containing Name, Weight and a short UUID part
+                -- This ensures distinct entries for pets with the same name
+                local uniqueDisplay = string.format("%s | %skg [%s]", pName, weight, pet.UUID:sub(1, 5))
+                
+                ActivePetMap[uniqueDisplay] = pet.UUID
+                table.insert(list, uniqueDisplay)
+            end
+        end
+    end
+    return list
+end
+
+-- // Blacklist GUI Elements // --
+Tab:CreateSection("Blacklist Settings")
+
+local BlacklistDropdown = Tab:CreateDropdown({
+    Name = "Blacklist Active Pets",
+    Options = getActivePetsList(), -- Populates with current active pets
+    CurrentOption = {},
+    MultipleOptions = true,
+    Flag = "BlacklistDropdown",
+    Callback = function(Option)
+        getgenv().blacklistedUUIDs = {} -- Clear previous selection
+        for _, selectedString in pairs(Option) do
+            local uuid = ActivePetMap[selectedString]
+            if uuid then
+                table.insert(getgenv().blacklistedUUIDs, uuid)
+            end
+        end
+        print("Blacklist Updated. Total UUIDs: " .. #getgenv().blacklistedUUIDs)
+    end
+})
+
+Tab:CreateButton({
+    Name = "Refresh Active Pets",
+    Callback = function()
+        local newList = getActivePetsList()
+        BlacklistDropdown:Refresh(newList, true)
     end
 })
