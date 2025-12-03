@@ -90,7 +90,9 @@ local function calculate_weight(var233)
 end
 local function start_leveling()
 task.spawn(
+
     function()
+        task.wait(1)
         if PetUtilities then
             local success, myActivePets =
                 pcall(
@@ -119,6 +121,7 @@ task.spawn(
                         local petUUID = select_pet(realName)
                         if petUUID then
                             place_pet(petUUID)
+                            task.wait(0.5)
                             break
                         end
                     end
