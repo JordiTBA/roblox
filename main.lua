@@ -33,10 +33,17 @@ local Workspace_upvr = game:GetService("Workspace")
 local UserInputService_upvr = game:GetService("UserInputService")
 local LocalPlayer_upvr = game:GetService("Players").LocalPlayer
 local CurrentCamera_upvr = Workspace_upvr.CurrentCamera
-
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PetUtilitiesPath =
+    ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetServices"):WaitForChild("PetUtilities")
+local PetUtilities = require(PetUtilitiesPath)
+local PetList_upvr = require(ReplicatedStorage.Data.PetRegistry).PetList
+local PetUtilities_upvr = require(ReplicatedStorage.Modules.PetServices.PetUtilities)
+local PetsService_upvr_2 = require(ReplicatedStorage.Modules.PetServices.PetsService)
 -- // Helper Functions // --
 local function select_pet(name)
-    -- name = name:match("^%s*(.-)%s*$") -- Trim spasi
     print("Mencari pet dengan nama: " .. name)
     for index, pets in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
         print( pets:GetAttribute("PetType") and "lkontol"..pets.Name:match("^(.-)%s*%[") or "awa")
@@ -74,84 +81,52 @@ local function place_pet(UUID)
         petService:EquipPet(UUID, cframe)
     end
 end
-
+local function calculate_weight(var233)
+    local var235 = PetList_upvr[var233.PetType]
+    return string.format(
+        "%.2f",
+        PetUtilities_upvr:CalculateWeight(var233.PetData.BaseWeight or 1, math.min(var233.PetData.Level or 1, 100))
+    )
+end
 local function start_leveling()
-    local playerGui = LocalPlayer_upvr:FindFirstChild("PlayerGui")
-    if not playerGui or not playerGui:FindFirstChild("ActivePetUI") then return end
-
-    -- Buka Sensor UI jika belum terbuka
-    local sensor = playerGui.ActivePetUI.Frame.Opener:FindFirstChild("SENSOR")
-    if sensor then
-        firesignal(sensor.MouseButton1Click)
-        task.wait(1)
-    end
-
-    local scrollFrame = playerGui.ActivePetUI.Frame.Main.PetDisplay.ScrollingFrame
-    
-    for _, frame_weight in pairs(scrollFrame:GetChildren()) do
-        if frame_weight:FindFirstChild("Dropdown") and tostring(frame_weight):find("{") then
-            
-            local tombolView = frame_weight.Dropdown.Main.Main.VIEW_BUTTON.Holder.Main:FindFirstChildWhichIsA("TextButton")
-            
-            if tombolView then
-                firesignal(tombolView.Activated)
-                task.wait(0.5)
-
-                -- Safe UI Finding
-                local statsHolder = playerGui.PetUI.PetCard.Main.Holder.Stats.Holder
-                if not statsHolder then return end
-                
-                -- Pastikan index child benar (kadang urutan berubah)
-                local weightLabel = nil
-                for _, child in pairs(statsHolder:GetChildren()) do
-                    if child:FindFirstChild("PET_WEIGHT") then
-                        weightLabel = child
-                        break
-                    end
+task.spawn(
+    function()
+        if PetUtilities then
+            local success, myActivePets =
+                pcall(
+                function()
+                    return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
                 end
-                
-                if not weightLabel then return end
-
-                local weightText = weightLabel.PET_WEIGHT.Text
-                local weight = tonumber(string.match(tostring(weightText), "%d+%.?%d*"))
-                
-                local nameRaw = playerGui.PetUI.PetCard.Main.Holder.Header.PET_TEXT.Text
-                local clean = nameRaw:gsub("<[^>]->", "")
-                local nameClean = clean:match("^(%S+)")
-
-                if weight and weight >= weight_to_remove then
+            )
+            print("--- ACTIVE PETS LIST ---")
+            for i, pet in pairs(myActivePets) do
+                local pName = (pet.PetData and pet.PetData.Name) or "Unnamed"
+                local pType = pet.PetType or "Unknown"
+                local pID = pet.UUID or "No UUID"
+                local weight = tonumber(calculate_weight(pet))
+                print(string.format("[%d] %s | Type: %s | ID: %s | Weight: %.2fkg", i, pName, pType, pID, weight))
+                if weight >= weight_to_remove then
+                    PetsService_upvr_2:UnequipPet(pet.UUID)
                     Rayfield:Notify({
                         Title = "Auto Level",
-                        Content = "Removing " .. (nameClean or "Pet") .. " (" .. weight .. "kg)",
+                        Content = "Removing " .. (pName or "Pet") .. " (" .. weight .. "kg)",
                         Duration = 2
                     })
-
-                    local tombolPickup = frame_weight.Dropdown.Main.Main.PICKUP_BUTTON.Holder.Main:FindFirstChildWhichIsA("TextButton")
-                    print(tombolPickup)
-                    if tombolPickup then
-                        firesignal(tombolPickup.Activated)
-                        task.wait(0.5)
-                        
-                        print("Attempting to place pet...")
-                        -- FIX LOGIC LOOP
-                        for _, fullString in pairs(selectedPets) do
-                            print(fullString)
-
-                            local realName = fullString:match("^(.-)%s*%[") or fullString
-                            print("realName" ..realName)
-                            -- realName = realName:gsub("%s+$", "")
-
-                            local petUUID = select_pet(realName)
-                            if petUUID then
-                                place_pet(petUUID)
-                                break
-                            end
+                    for _, fullString in pairs(selectedPets) do
+                        print(fullString)
+                        local realName = fullString:match("^(.-)%s*%[") or fullString
+                        print("realName" .. realName)
+                        local petUUID = select_pet(realName)
+                        if petUUID then
+                            place_pet(petUUID)
+                            break
                         end
                     end
                 end
             end
         end
     end
+)
 end
 
 local function refreshPetData()
