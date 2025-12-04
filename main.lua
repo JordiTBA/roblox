@@ -403,12 +403,11 @@ local function start_leveling()
                             end
                         end
                     elseif getgenv().Mode == "reseting" then
-                        -- RESET LOGIC (Fixed Loadout ID Mismatch)
                         while check_loadout() ~= 3 do
                             Rayfield:Notify(
                                 {Title = "Auto Level", Content = "Switching to Loadout 2 (Reset)...", Duration = 3}
                             )
-                            change_loadout(3) -- FIXED: Was 3, changed to 2 to match check
+                            change_loadout(3) 
                             task.wait(2)
                         end
                         for index, value in ipairs(selectedPets) do
@@ -418,7 +417,6 @@ local function start_leveling()
                                 task.wait(0.2)
                             end
                         end
-                        -- Re-fetch pets to see status
                         local s, currentPets =
                             pcall(
                             function()
@@ -429,9 +427,6 @@ local function start_leveling()
                         if s and currentPets then
                             local allreset = true
 
-                            -- Re-equip pets to check their level
-
-                            -- Scan levels
                             local anyPetFound = false
                             for _, fullString in pairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[fullString]
