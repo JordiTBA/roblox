@@ -348,13 +348,15 @@ local function start_leveling()
                                         end
                                     end
                                     if check then
+                                         getgenv().Mode = "reseting"
+                                task.wait(0.5)
+
                                         make_sure = true
                                         break
                                     end
                                     task.wait(1)
                                 end
 
-                                task.wait(0.5)
                                 getgenv().Mode = "reseting"
                             end
                         end
@@ -530,6 +532,7 @@ Tab:CreateToggle(
                             start_leveling()
                             task.wait(1.5)
                         end
+                        getgenv().Mode = "leveling"
                     end
                 )
             end
