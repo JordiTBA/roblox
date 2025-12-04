@@ -146,29 +146,36 @@ end
 
 
 local function refreshPetData()
+    -- Refresh backpack reference in case player respawned
+    petsFolder = game.Players.LocalPlayer.Backpack
+    
     petList = {}
     getgenv().InventoryMap = {} -- Reset map
 
     for _, pet in pairs(petsFolder:GetChildren()) do
         if pet:GetAttribute("PetType") then
             local full = pet.Name
+            -- Get UUID
             local uuid = pet:GetAttribute("PET_UUID") or "NoUUID"
+            
+            -- Clean Name
             local name = full:match("^(.-)%s*%[") or full
+            
+            -- Get Level
             local level = pet:GetAttribute("Level")
             if not level then
                 local lvlMatch = full:match("Level%s*(%d+)") or full:match("Lvl%s*(%d+)") or full:match("Age%s*(%d+)")
                 level = lvlMatch and tonumber(lvlMatch) or 1
             end
-            local weightStr = full:match("%[(.-)%s*KG%]")
-            local weight = weightStr and tonumber(weightStr) or 0
+
+            -- Format: {uuid} Level Name
+            -- UUID truncated to first 6 chars for readability. Remove :sub(1,6) if you want full UUID.
+            local displayString = string.format("{%s} Level %s %s", uuid:sub(1, 6), level, name)
             
-            if weight < weight_to_remove then
-                 local displayString = string.format("{%s} Level %s %s", uuid:sub(1, 6), level, name)
-                 
-                 getgenv().InventoryMap[displayString] = uuid
-                 
-                 table.insert(petList, displayString)
-            end
+            -- Store mapping
+            getgenv().InventoryMap[displayString] = uuid
+            
+            table.insert(petList, displayString)
         end
     end
     return petList
