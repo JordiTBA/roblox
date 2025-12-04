@@ -269,7 +269,6 @@ print(check_loadout())
 local function start_leveling()
     -- FIXED: Added Busy Check at the start to prevent overlapping threads
 
-
     task.spawn(
         function()
             local pcallSuccess, pcallError =
@@ -312,10 +311,11 @@ local function start_leveling()
                             -- CHECK WEIGHT LOGIC
                             local allReady = true
                             local activeCount = 0
-
+                            for index, value in ipairs(selectedPets) do
+                                local uuid = getgenv().InventoryMap[value]
+                                if uuid  then
                             for _, pet in pairs(myActivePets) do
-                                if not check_blacklist(pet.UUID) then
-                                    activeCount = activeCount + 1
+                                if pet.UUID == uuid then
                                     local weight = tonumber(calculate_weight(pet)) or 0
                                     -- print("Checking:", pet.UUID, "Weight:", weight)
                                     if weight < weight_to_remove then
@@ -323,6 +323,9 @@ local function start_leveling()
                                     end
                                 end
                             end
+                                end
+                            end
+
 
                             if allReady and activeCount > 0 then
                                 Rayfield:Notify(
@@ -348,8 +351,8 @@ local function start_leveling()
                                         end
                                     end
                                     if check then
-                                         getgenv().Mode = "reseting"
-                                task.wait(0.5)
+                                        getgenv().Mode = "reseting"
+                                        task.wait(0.5)
 
                                         make_sure = true
                                         break
@@ -414,12 +417,27 @@ local function start_leveling()
                                 getgenv().Mode = "leveling"
 
                                 -- Unequip everything to prepare for clean leveling start
-                                for _, pet in pairs(selectedPets) do
-                                    local uuid = getgenv().InventoryMap[pet]
-                                    if PetsService and uuid then
-                                        PetsService:UnequipPet(uuid)
+                                local make_sure = false
+                                while not make_sure do
+                                    local check = false
+                                    for index, value in ipairs(myActivePets) do
+                                        for _, pet in pairs(selectedPets) do
+                                            local uuid = getgenv().InventoryMap[pet]
+                                            if PetsService and value.UUID == uuid then
+                                                check = true
+                                                PetsService:UnequipPet(uuid)
+                                            end
+                                            task.wait(0.5)
+                                        end
                                     end
-                                    task.wait(0.1)
+                                    if check then
+                                        getgenv().Mode = "leveling"
+                                        task.wait(0.5)
+
+                                        make_sure = true
+                                        break
+                                    end
+                                    task.wait(1)
                                 end
                             end
                         end
