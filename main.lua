@@ -370,10 +370,9 @@ local function start_leveling()
                         -- if equippedCount >= 4 then break end -- Safety limit (max equip slot usually 4-5)
 
                         local uuid = getgenv().InventoryMap[fullString]
-                        print("Checking reset pet:", uuid, fullString,myActivePets[uuid])
                         for index, value in ipairs(myActivePets) do
                             if value.UUID == uuid then
-                                print("Found active pet for reset check:", uuid, fullString,value.PetData.Level)
+                                print("Found active pet for reset check:", uuid, value.PetData.Level,(value.PetData.Level or 1) )
                                 if value.PetData and (value.PetData.Level or 1) > 1 then
                                     allreset = false
                                 end
