@@ -187,9 +187,16 @@ local function refreshPetData()
     return displayList
 end
 local function check_pet_active(uuid)
-    for index, value in ipairs(selectedPets) do
-        if  getgenv().InventoryMap[value] == uuid then
-            return true
+    if PetUtilities then
+        local success, myActivePets = pcall(function()
+            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+        end)
+        if success and myActivePets then
+            for _, pet in pairs(myActivePets) do
+                if pet.UUID == uuid then
+                    return true
+                end
+            end
         end
     end
     return false
@@ -203,12 +210,12 @@ local function start_leveling()
         local success, myActivePets = pcall(function()
             return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
         end)
-            
-        if success and myActivePets and #myActivePets > 0 then
-            for index, value in ipairs(myActivePets) do
-                if check_pet_active(value.UUID) == false then
-                    print("Placing pet for leveling:", value.UUID, value.PetData.Name)
-                    place_pet(value.UUID)
+        print(success, myActivePets,#myActivePets)
+        if success and myActivePets  then
+            for index, value in ipairs(selectedPets) do
+                if not check_pet_active(getgenv().InventoryMap[value]) then
+                    print("Placing pet for leveling:", getgenv().InventoryMap[value], value)
+                    place_pet(getgenv().InventoryMap[value])
                     task.wait(0.2)
                 end
             end
