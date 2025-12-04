@@ -266,6 +266,7 @@ local function check_loadout()
     end
     return 1
 end
+print(check_loadout())
 local function start_leveling()
     -- FIXED: Added Busy Check at the start to prevent overlapping threads
     if getgenv().isBusy then return end
@@ -335,9 +336,9 @@ local function start_leveling()
 
                 elseif getgenv().Mode == "reseting" then
                     -- RESET LOGIC (Fixed Loadout ID Mismatch)
-                    if check_loadout() ~= 2 then
+                    if check_loadout() ~= 3 then
                         Rayfield:Notify({Title = "Auto Level", Content = "Switching to Loadout 2 (Reset)...", Duration = 3})
-                        change_loadout(2) -- FIXED: Was 3, changed to 2 to match check
+                        change_loadout(3) -- FIXED: Was 3, changed to 2 to match check
                         task.wait(2)
                     end
                     
@@ -369,12 +370,14 @@ local function start_leveling()
                                     if lvl > 1 then
                                         print("Pet not reset:", uuid, lvl)
                                         allreset = false
+                                        break
                                     end
                                 end
                             end
                         end
                         
                         if allreset and anyPetFound then
+                            print("allreset",allreset,"anypet",anyPetFound)
                             Rayfield:Notify({Title = "Auto Level", Content = "Pets Reset! Resuming...", Duration = 3})
                             getgenv().Mode = "leveling"
                             
