@@ -351,9 +351,6 @@ local function start_leveling()
                         task.wait(2)
                     end
                     task.wait(0.5)
-
-                    for _, fullString in pairs(selectedPets) do
-                        -- if equippedCount >= 4 then break end -- Safety limit (max equip slot usually 4-5)
                         for index, value in ipairs(selectedPets) do
                             if not check_pet_active(getgenv().InventoryMap[value]) then
                                 print("Placing pet for leveling:", getgenv().InventoryMap[value], value)
@@ -361,7 +358,11 @@ local function start_leveling()
                                 task.wait(0.2)
                             end
                         end
+                    for _, fullString in pairs(selectedPets) do
+                        -- if equippedCount >= 4 then break end -- Safety limit (max equip slot usually 4-5)
+
                         local uuid = getgenv().InventoryMap[fullString]
+                        print("Checking reset pet:", uuid, fullString,myActivePets[uuid])
                         if myActivePets[uuid] then
                             print("Checking if pet needs leveling:", uuid, fullString,myActivePets[uuid].pet.PetData.Level,allreset)
                             if myActivePets[uuid].pet.PetData and (myActivePets[uuid].pet.PetData.Level or 1) > 1 then
