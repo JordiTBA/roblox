@@ -146,38 +146,54 @@ end
 
 
 local function refreshPetData()
-    -- Refresh backpack reference in case player respawned
-    petsFolder = game.Players.LocalPlayer.Backpack
-    
     petList = {}
     getgenv().InventoryMap = {} -- Reset map
+    
+    -- Helper to process a pet entry
+    local function addPetToList(petData, isEquipped)
+        local uuid = petData.UUID or petData:GetAttribute("PET_UUID") or "NoUUID"
+        local full = petData.Name or (petData.PetData and petData.PetData.Name) or "Unnamed"
+        local name = full:match("^(.-)%s*%[") or full
+        local level = 1
+        if isEquipped then
+            level = petData.PetData and petData.PetData.Level or 1
+        else
+            local lvlAttr = petData:GetAttribute("Level")
+            local lvlMatch = full:match("Level%s*(%d+)") or full:match("Lvl%s*(%d+)") or full:match("Age%s*(%d+)")
+            level = lvlAttr or (lvlMatch and tonumber(lvlMatch)) or 1
+        end
 
-    for _, pet in pairs(petsFolder:GetChildren()) do
-        if pet:GetAttribute("PetType") then
-            local full = pet.Name
-            -- Get UUID
-            local uuid = pet:GetAttribute("PET_UUID") or "NoUUID"
-            
-            -- Clean Name
-            local name = full:match("^(.-)%s*%[") or full
-            
-            -- Get Level
-            local level = pet:GetAttribute("Level")
-            if not level then
-                local lvlMatch = full:match("Level%s*(%d+)") or full:match("Lvl%s*(%d+)") or full:match("Age%s*(%d+)")
-                level = lvlMatch and tonumber(lvlMatch) or 1
+        -- Format String
+        local status = isEquipped and "[EQ] " or ""
+        local displayString = string.format("%s{%s} Level %s %s", status, uuid:sub(1, 6), level, name)
+        
+        -- Store mapping
+        getgenv().InventoryMap[displayString] = uuid
+        table.insert(petList, displayString)
+    end
+
+    -- 1. Get Active Pets (Equipped)
+    if PetUtilities then
+        local success, myActivePets = pcall(function()
+            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+        end)
+        if success and myActivePets then
+            for _, pet in pairs(myActivePets) do
+                addPetToList(pet, true)
             end
-
-            -- Format: {uuid} Level Name
-            -- UUID truncated to first 6 chars for readability. Remove :sub(1,6) if you want full UUID.
-            local displayString = string.format("{%s} Level %s %s", uuid:sub(1, 6), level, name)
-            
-            -- Store mapping
-            getgenv().InventoryMap[displayString] = uuid
-            
-            table.insert(petList, displayString)
         end
     end
+
+    -- 2. Get Backpack Pets (Unequipped)
+    local backpack = game.Players.LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, pet in pairs(backpack:GetChildren()) do
+            if pet:GetAttribute("PetType") then
+                addPetToList(pet, false)
+            end
+        end
+    end
+
     return petList
 end
 -- // GUI Elements // --
