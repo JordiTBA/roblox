@@ -186,6 +186,14 @@ local function refreshPetData()
 
     return displayList
 end
+local function check_pet_active(uuid)
+    for index, value in ipairs(selectedPets) do
+        if  getgenv().InventoryMap[value] == uuid then
+            return true
+        end
+    end
+    return false
+end
 
 -- // Core Logic: Auto Leveling (Batch) // --
 local function start_leveling()
@@ -195,9 +203,15 @@ local function start_leveling()
         local success, myActivePets = pcall(function()
             return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
         end)
-
+            
         if success and myActivePets and #myActivePets > 0 then
-            -- 1. Check if ALL active pets (that aren't blacklisted) are overweight
+            for index, value in ipairs(myActivePets) do
+                if check_pet_active(value.UUID) == false then
+                    print("Placing pet for leveling:", value.UUID, value.PetData.Name)
+                    place_pet(value.UUID)
+                    task.wait(0.2)
+                end
+            end
             local allReady = true
             local activeCount = 0
             
@@ -205,10 +219,9 @@ local function start_leveling()
                 if not check_blacklist(pet.UUID) then
                     activeCount = activeCount + 1
                     local weight = tonumber(calculate_weight(pet)) or 0
-                    
+                    print("Checking pet:", pet.UUID, "Weight:", weight,pet.PetData.Level,pet.PetData.Name)
                     if weight < weight_to_remove then
                         allReady = false
-                        -- print(string.format("Waiting: %s | %.2f / %d", pet.PetData.Name, weight, weight_to_remove))
                     end
                 end
             end
