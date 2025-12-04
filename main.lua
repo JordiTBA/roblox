@@ -290,6 +290,7 @@ local function start_leveling()
                     )
                     change_loadout(1)
                 end
+                print("Current Mode:", getgenv().Mode)
                 if getgenv().Mode ~= "leveling" then
                     for index, value in ipairs(selectedPets) do
                         if not check_pet_active(getgenv().InventoryMap[value]) then
