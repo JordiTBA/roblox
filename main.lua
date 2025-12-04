@@ -3,18 +3,19 @@ local success, Rayfield = pcall(function()
 end)
 
 if not success or not Rayfield then
-    -- Backup Link jika link pertama gagal
     success, Rayfield = pcall(function()
         return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
     end)
 end
 
 if not success or not Rayfield then
-    warn("CRITICAL ERROR: Gagal memuat UI Library. Cek koneksi internet atau ganti Executor.")
+    warn("CRITICAL ERROR: Failed to load UI Library.")
     return
 end
 
 getgenv().Leveling = false
+getgenv().blacklistedUUIDs = {}
+getgenv().InventoryMap = {} -- Maps Display String -> Real UUID
 
 local Window = Rayfield:CreateWindow({
     Name = "Pet Manager GUI",
@@ -25,143 +26,116 @@ local Window = Rayfield:CreateWindow({
 local Tab = Window:CreateTab("Main", 4483362458)
 
 -- // Services & Variables // --
-local petsFolder = game.Players.LocalPlayer.Backpack
-local petList = {}
-local selectedPets = {}
-local weight_to_remove = 0 
--- // Blacklist Variables & Helper // --
-getgenv().InventoryMap = {} -- Map to store UUIDs from the dropdown
-
-getgenv().blacklistedUUIDs = {} -- This table will store the UUIDs of pets you selected
-local ActivePetMap = {} -- Maps the Dropdown Display String -> Real UUID
-
-local Workspace_upvr = game:GetService("Workspace")
-local UserInputService_upvr = game:GetService("UserInputService")
-local LocalPlayer_upvr = game:GetService("Players").LocalPlayer
-local CurrentCamera_upvr = Workspace_upvr.CurrentCamera
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local PetUtilitiesPath =
-    ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetServices"):WaitForChild("PetUtilities")
-local PetUtilities = require(PetUtilitiesPath)
-local PetList_upvr = require(ReplicatedStorage.Data.PetRegistry).PetList
-local PetUtilities_upvr = require(ReplicatedStorage.Modules.PetServices.PetUtilities)
-local PetsService_upvr_2 = require(ReplicatedStorage.Modules.PetServices.PetsService)
--- // Helper Functions // --
-local function select_pet(name)
-    for index, pets in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-        if pets:GetAttribute("PetType") and pets.Name:match("^(.-)%s*%[") == name then
-            return pets:GetAttribute("PET_UUID")
-        end
+local CurrentCamera = Workspace.CurrentCamera
+
+-- // SAFE MODULE LOADING // --
+-- We use pcall here so the UI still loads even if the game updated the paths
+local PetUtilities, PetList_Data, PetsService
+local ModulesLoaded, LoadError = pcall(function()
+    -- Attempt to find folders with a small timeout to prevent infinite freezing
+    local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+    if not Modules then error("Modules folder not found") end
+
+    local PetServices = Modules:WaitForChild("PetServices", 2)
+    if PetServices then
+        local UtilMod = PetServices:WaitForChild("PetUtilities", 2)
+        if UtilMod then PetUtilities = require(UtilMod) end
+        
+        local SvcMod = PetServices:WaitForChild("PetsService", 2)
+        if SvcMod then PetsService = require(SvcMod) end
     end
-    return nil
+
+    local DataFolder = ReplicatedStorage:WaitForChild("Data", 2)
+    if DataFolder then
+        local Registry = DataFolder:WaitForChild("PetRegistry", 2)
+        if Registry then PetList_Data = require(Registry).PetList end
+    end
+end)
+
+if not ModulesLoaded or not PetUtilities then
+    Rayfield:Notify({
+        Title = "Warning",
+        Content = "Some Game Modules failed to load. Features might be broken.",
+        Duration = 6.5,
+        Image = 4483362458,
+    })
+    warn("Module Load Error:", LoadError)
 end
 
-local function ScreenRaycast_upvr()
+local selectedPets = {}
+local weight_to_remove = 0 
+
+-- // Helper Functions // --
+
+local function ScreenRaycast()
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {LocalPlayer_upvr.Character}
+    params.FilterDescendantsInstances = {LocalPlayer.Character}
     
-    local mouseLoc = UserInputService_upvr:GetMouseLocation()
-    local ray = CurrentCamera_upvr:ViewportPointToRay(mouseLoc.X, mouseLoc.Y)
+    local mouseLoc = UserInputService:GetMouseLocation()
+    local ray = CurrentCamera:ViewportPointToRay(mouseLoc.X, mouseLoc.Y)
     
-    return Workspace_upvr:Raycast(ray.Origin, ray.Direction * 1000, params)
+    return Workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
 end
 
 local function place_pet(UUID)
-    local rayResult = ScreenRaycast_upvr()
+    if not PetsService then return end -- Safety check
+    
+    local rayResult = ScreenRaycast()
     if not rayResult then return end
 
     local pos = rayResult.Position
     local cframe = CFrame.new(pos.X, pos.Y, pos.Z)
-
-    local success, petService = pcall(function()
-        return require(game:GetService("ReplicatedStorage").Modules.PetServices.PetsService)
+    
+    -- Try to equip
+    pcall(function()
+        PetsService:EquipPet(UUID, cframe)
     end)
+end
 
-    if success and petService then
-        petService:EquipPet(UUID, cframe)
+local function calculate_weight(petData)
+    -- Handles both raw data and active pet objects
+    local pType = petData.PetType
+    local pData = petData.PetData
+    
+    if not pType or not pData then return "0.00" end
+
+    local baseWeight = pData.BaseWeight or 1
+    local level = pData.Level or 1
+    
+    if PetUtilities then
+        return string.format("%.2f", PetUtilities:CalculateWeight(baseWeight, math.min(level, 100)))
+    else
+        return "0.00" -- Fallback if utils missing
     end
 end
-local function calculate_weight(var233)
-    local var235 = PetList_upvr[var233.PetType]
-    return string.format(
-        "%.2f",
-        PetUtilities_upvr:CalculateWeight(var233.PetData.BaseWeight or 1, math.min(var233.PetData.Level or 1, 100))
-    )
-end
+
 local function check_blacklist(UUID)
-    for _, blacklistedUUID in pairs(getgenv().blacklistedUUIDs) do
-        if UUID == blacklistedUUID then
-            return true
-        end
+    for _, id in pairs(getgenv().blacklistedUUIDs) do
+        if id == UUID then return true end
     end
     return false
-end 
-
-local function start_leveling()
-    task.spawn(function()
-        if not PetUtilities then return end
-
-        local success, myActivePets = pcall(function()
-            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
-        end)
-
-        if success and myActivePets and #myActivePets > 0 then
-            -- 1. Check if ALL active pets are overweight
-            local allReadyToRemove = true
-            
-            print("--- CHECKING PET WEIGHTS ---")
-            for _, pet in pairs(myActivePets) do
-                local weight = tonumber(calculate_weight(pet)) or 0
-                -- If ANY pet is still skinny (under weight), stop the process
-                if weight < weight_to_remove then
-                    allReadyToRemove = false
-                    print(string.format("Waiting for: %s | Current: %.2f / %d", pet.PetData.Name, weight, weight_to_remove))
-                end
-            end
-
-            -- 2. Only unequip if ALL are ready
-            if allReadyToRemove then
-                print("ALL PETS READY! SWAPPING NOW...")
-                
-                -- Unequip All Active Pets first
-                for _, pet in pairs(selectedPets) do
-                    -- Optional: Check blacklist here if you want
-                    local uuid = getgenv().InventoryMap[pet]
-                    if uuid then
-                        print("Unequipping Pet UUID: " .. uuid)
-                        PetsService_upvr_2:UnequipPet(uuid)
-                        task.wait(0.1) -- Small delay to prevent network choke
-                    end
-                end
-                
-                -- Equip New Pets from Selected List
-                -- Note: This loops through your selection and tries to equip them
-                for _, fullString in pairs(selectedPets) do
-                    local uuid = getgenv().InventoryMap[fullString] -- Use the Map we made in refreshPetData
-                    if uuid then
-                        print("Equipping Pet UUID: " .. uuid)
-                        place_pet(uuid)
-                        task.wait(0.2)
-                    end
-                end
-            end
-        end
-    end)
 end
 
-
+-- // Core Logic: Refresh Data // --
 local function refreshPetData()
-    petList = {}
+    local displayList = {}
     getgenv().InventoryMap = {} -- Reset map
     
     -- Helper to process a pet entry
     local function addPetToList(petData, isEquipped)
         local uuid = petData.UUID or petData:GetAttribute("PET_UUID") or "NoUUID"
         local full = petData.Name or (petData.PetData and petData.PetData.Name) or "Unnamed"
+        
+        -- Clean Name
         local name = full:match("^(.-)%s*%[") or full
+        
+        -- Get Level
         local level = 1
         if isEquipped then
             level = petData.PetData and petData.PetData.Level or 1
@@ -171,13 +145,14 @@ local function refreshPetData()
             level = lvlAttr or (lvlMatch and tonumber(lvlMatch)) or 1
         end
 
-        -- Format String
+        -- Format String: [EQ] {123456} Level 50 Dog
         local status = isEquipped and "[EQ] " or ""
-        local displayString = string.format("%s{%s} Level %s %s", status, uuid:sub(1, 6), level, name)
+        local shortUUID = uuid:sub(1, 6)
+        local displayString = string.format("%s{%s} Level %s %s", status, shortUUID, level, name)
         
-        -- Store mapping
+        -- Store strict mapping
         getgenv().InventoryMap[displayString] = uuid
-        table.insert(petList, displayString)
+        table.insert(displayList, displayString)
     end
 
     -- 1. Get Active Pets (Equipped)
@@ -193,7 +168,7 @@ local function refreshPetData()
     end
 
     -- 2. Get Backpack Pets (Unequipped)
-    local backpack = game.Players.LocalPlayer:FindFirstChild("Backpack")
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
     if backpack then
         for _, pet in pairs(backpack:GetChildren()) do
             if pet:GetAttribute("PetType") then
@@ -202,16 +177,85 @@ local function refreshPetData()
         end
     end
 
-    return petList
+    return displayList
 end
+
+-- // Core Logic: Auto Leveling (Batch) // --
+local function start_leveling()
+    task.spawn(function()
+        if not PetUtilities then return end
+
+        local success, myActivePets = pcall(function()
+            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+        end)
+
+        if success and myActivePets and #myActivePets > 0 then
+            -- 1. Check if ALL active pets (that aren't blacklisted) are overweight
+            local allReady = true
+            local activeCount = 0
+            
+            for _, pet in pairs(myActivePets) do
+                if not check_blacklist(pet.UUID) then
+                    activeCount = activeCount + 1
+                    local weight = tonumber(calculate_weight(pet)) or 0
+                    
+                    if weight < weight_to_remove then
+                        allReady = false
+                        -- print(string.format("Waiting: %s | %.2f / %d", pet.PetData.Name, weight, weight_to_remove))
+                    end
+                end
+            end
+
+            -- 2. Only unequip/swap if ALL are ready and we have active pets
+            if allReady and activeCount > 0 then
+                Rayfield:Notify({Title = "Auto Level", Content = "All pets reached target weight. Swapping...", Duration = 3})
+                
+                -- Unequip Active Pets
+                for _, pet in pairs(myActivePets) do
+                    if not check_blacklist(pet.UUID) then
+                        if PetsService then PetsService:UnequipPet(pet.UUID) end
+                        task.wait(0.1)
+                    end
+                end
+                
+                task.wait(0.5)
+
+                -- Equip from Selected List
+                -- We iterate through the user's selection in the Dropdown
+                local equippedCount = 0
+                for _, fullString in pairs(selectedPets) do
+                    if equippedCount >= 4 then break end -- Safety limit (max equip slot usually 4-5)
+                    
+                    local uuid = getgenv().InventoryMap[fullString]
+                    if uuid then
+                        place_pet(uuid)
+                        equippedCount = equippedCount + 1
+                        task.wait(0.2)
+                    end
+                end
+            end
+        end
+    end)
+end
+
 -- // GUI Elements // --
 
 local PetDropdown
+local BlacklistDropdown
 
-local function CreateDropdown()
-    local list = refreshPetData()
+local function CreateDropdowns()
+    -- Use pcall here so if refresh fails, the UI still creates the dropdown (empty)
+    local list = {}
+    local s, e = pcall(function()
+        list = refreshPetData()
+    end)
+    if not s then 
+        warn("Data Refresh Error: " .. tostring(e)) 
+        list = {"Error loading pets (Check Console)"}
+    end
+    
     PetDropdown = Tab:CreateDropdown({
-        Name = "Inventory Pets",
+        Name = "Inventory (Select pets to Equip)",
         Options = list,
         CurrentOption = {},
         MultipleOptions = true,
@@ -220,34 +264,50 @@ local function CreateDropdown()
             selectedPets = Option
         end
     })
+
+    Tab:CreateSection("Blacklist Settings")
+
+    BlacklistDropdown = Tab:CreateDropdown({
+        Name = "Blacklist (Select pets to IGNORE)",
+        Options = list,
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "BlacklistDropdown",
+        Callback = function(Option)
+            getgenv().blacklistedUUIDs = {} 
+            for _, selectedString in pairs(Option) do
+                local uuid = getgenv().InventoryMap[selectedString]
+                if uuid then
+                    table.insert(getgenv().blacklistedUUIDs, uuid)
+                end
+            end
+        end
+    })
 end
 
-CreateDropdown()
+CreateDropdowns()
 
 Tab:CreateButton({
-    Name = "Refresh Pet List",
+    Name = "Refresh Lists",
     Callback = function()
         local newList = refreshPetData()
         PetDropdown:Refresh(newList, true)
+        BlacklistDropdown:Refresh(newList, true)
     end
 })
 
 Tab:CreateSection("Automation Settings")
 
 Tab:CreateInput({
-    Name = "Weight to Remove (KG)",
-    PlaceholderText = "Input Number (e.g. 10)",
+    Name = "Target Weight (KG)",
+    PlaceholderText = "Example: 10",
     RemoveTextAfterFocusLost = false,
     Callback = function(Text)
-        local numberValue = tonumber(Text)
-        if numberValue then
-            weight_to_remove = numberValue
-        else
-            Rayfield:Notify({Title = "Error", Content = "Please enter a valid number!", Duration = 3})
-        end
+        local num = tonumber(Text)
+        if num then weight_to_remove = num end
     end
 })
-
+--a
 Tab:CreateToggle({
     Name = "Start Auto Leveling",
     CurrentValue = false,
@@ -262,61 +322,5 @@ Tab:CreateToggle({
                 end
             end)
         end
-    end
-})
-
-local function getActivePetsList()
-    local list = {}
-    ActivePetMap = {} -- Reset map on refresh
-
-    if PetUtilities then
-        local success, myActivePets = pcall(function()
-            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
-        end)
-        
-        if success and myActivePets then
-            for _, pet in pairs(myActivePets) do
-                local pName = (pet.PetData and pet.PetData.Name) or "Unnamed"
-                -- Utilizing your existing calculate_weight function
-                local weight = calculate_weight(pet) 
-                
-                -- Create a unique display string containing Name, Weight and a short UUID part
-                -- This ensures distinct entries for pets with the same name
-                local uniqueDisplay = string.format("%s | %skg [%s]", pName, weight, pet.UUID:sub(1, 5))
-                
-                ActivePetMap[uniqueDisplay] = pet.UUID
-                table.insert(list, uniqueDisplay)
-            end
-        end
-    end
-    return list
-end
-
--- // Blacklist GUI Elements // --
-Tab:CreateSection("Blacklist Settings")
-
-local BlacklistDropdown = Tab:CreateDropdown({
-    Name = "Blacklist Active Pets",
-    Options = getActivePetsList(), -- Populates with current active pets
-    CurrentOption = {},
-    MultipleOptions = true,
-    Flag = "BlacklistDropdown",
-    Callback = function(Option)
-        getgenv().blacklistedUUIDs = {} -- Clear previous selection
-        for _, selectedString in pairs(Option) do
-            local uuid = ActivePetMap[selectedString]
-            if uuid then
-                table.insert(getgenv().blacklistedUUIDs, uuid)
-            end
-        end
-        print("Blacklist Updated. Total UUIDs: " .. #getgenv().blacklistedUUIDs)
-    end
-})
-
-Tab:CreateButton({
-    Name = "Refresh Active Pets",
-    Callback = function()
-        local newList = getActivePetsList()
-        BlacklistDropdown:Refresh(newList, true)
     end
 })
