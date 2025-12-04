@@ -338,7 +338,6 @@ local function start_leveling()
                         getgenv().Mode = "reseting"
                     end
                 elseif getgenv().Mode == "reseting" then
-                    local allreset = true
                     if check_loadout() ~= 2 then
                         Rayfield:Notify(
                             {
@@ -350,6 +349,15 @@ local function start_leveling()
                         change_loadout(2)
                         task.wait(2)
                     end
+                    local success, myActivePets =
+                pcall(
+                function()
+                    return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+                end
+            )
+            if success and myActivePets then
+                    local allreset = true
+
                     task.wait(0.5)
                         for index, value in ipairs(selectedPets) do
                             if not check_pet_active(getgenv().InventoryMap[value]) then
@@ -381,6 +389,7 @@ local function start_leveling()
                             task.wait(0.1)
                         end
                     end
+                end
                 end
             end
         end
