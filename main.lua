@@ -108,7 +108,7 @@ end
 local function place_pet(UUID)
     if not PetsService then
         return
-    end
+    end 
 
     local rayResult = ScreenRaycast()
     if not rayResult then
@@ -139,7 +139,7 @@ local function calculate_weight(petData)
     if PetUtilities then
         return string.format("%.2f", PetUtilities:CalculateWeight(baseWeight, math.min(level, 100)))
     else
-        return "0.00"
+        return "0.00" 
     end
 end
 
@@ -148,7 +148,7 @@ end
 -- // Core Logic: Refresh Data // --
 local function refreshPetData()
     local displayList = {}
-    getgenv().InventoryMap = {}
+    getgenv().InventoryMap = {} 
 
     local function addPetToList(petData, isEquipped)
         local uuid = "NoUUID"
@@ -247,15 +247,12 @@ local function check_loadout()
 end
 
 local function get_max_slots()
-    local success, result =
-        pcall(
-        function()
-            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
-            local data = DataService:GetData()
-            return data.PetsData.MutableStats.MaxEquippedPets or 0
-        end
-    )
-
+    local success, result = pcall(function()
+        local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+        local data = DataService:GetData()
+        return data.PetsData.MutableStats.MaxEquippedPets or 0
+    end)
+    
     if success and result then
         return result
     end
@@ -263,15 +260,12 @@ local function get_max_slots()
 end
 
 local function get_total_equipped_pets()
-    local success, result =
-        pcall(
-        function()
-            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
-            local data = DataService:GetData()
-            return #data.PetsData.EquippedPets or 0
-        end
-    )
-
+    local success, result = pcall(function()
+        local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+        local data = DataService:GetData()
+        return #data.PetsData.EquippedPets or 0
+    end)
+    
     if success and result then
         return result
     end
@@ -294,7 +288,7 @@ local function start_leveling()
                             }
                         )
                         getgenv().Leveling = false
-                        return
+                        return 
                     end
                     print("Current Mode:", getgenv().Mode)
 
@@ -305,7 +299,7 @@ local function start_leveling()
                                 {Title = "Auto Level", Content = "Switching to Loadout 1 for leveling...", Duration = 3}
                             )
                             change_loadout(1)
-                            task.wait(1)
+                            task.wait(1) 
                         end
                         print("Loadout 1 confirmed.")
                         if not PetUtilities then
@@ -321,14 +315,14 @@ local function start_leveling()
                         if success and myActivePets then
                             -- EQUIP PETS LOGIC
                             print("Equipping selected pets...")
-                            for index, value in ipairs(selectedPets) do
-                                local uuid = getgenv().InventoryMap[value]
-                                if uuid and not check_pet_active(uuid) then
-                                    print("Placing pet:", uuid)
-                                    place_pet(uuid)
-                                    task.wait(0.2)
+                                for index, value in ipairs(selectedPets) do
+                                    local uuid = getgenv().InventoryMap[value]
+                                    if uuid and not check_pet_active(uuid) then
+                                        print("Placing pet:", uuid)
+                                        place_pet(uuid)
+                                        task.wait(0.2)
+                                    end
                                 end
-                            end
 
                             print("Checking pet weights...")
                             -- CHECK WEIGHT LOGIC
@@ -347,14 +341,14 @@ local function start_leveling()
                             --         end
                             --     end
                             -- end
-                            local allReady = true
+                                                        local                                         allReady = true
 
                             for _, fullString in pairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[fullString]
                                 for _, value in ipairs(myActivePets) do
                                     if value.UUID == uuid then
                                         local lvl = value.PetData.Level or 1
-                                        if lvl >= 40 then
+                                        if lvl < 40 then
                                             print("Pet not reset:", uuid, lvl)
                                             allReady = false
                                             break
@@ -404,17 +398,17 @@ local function start_leveling()
                             Rayfield:Notify(
                                 {Title = "Auto Level", Content = "Switching to Loadout 2 (Reset)...", Duration = 3}
                             )
-                            change_loadout(3)
+                            change_loadout(3) 
                             task.wait(2)
                         end
                         for index, value in ipairs(selectedPets) do
-                            local uuid = getgenv().InventoryMap[value]
-                            if uuid and not check_pet_active(uuid) then
-                                print("Placing pet:", uuid)
-                                place_pet(uuid)
-                                task.wait(0.2)
-                            end
-                        end
+                                    local uuid = getgenv().InventoryMap[value]
+                                    if uuid and not check_pet_active(uuid) then
+                                        print("Placing pet:", uuid)
+                                        place_pet(uuid)
+                                        task.wait(0.2)
+                                    end
+                                end
                         local s, currentPets =
                             pcall(
                             function()
