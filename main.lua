@@ -153,7 +153,7 @@ local function refreshPetData()
         local name = full:match("^(.-)%s*%[") or full
 
         -- Format String: [EQ] {123456} Level 50 Dog
-        local status = isEquipped and "[EQ] " or ""
+        local status = ""
         local shortUUID = tostring(uuid):sub(1, 6)
         local displayString = string.format("%s{%s} Level %s %s", status, shortUUID, level, name)
         
@@ -218,11 +218,10 @@ local function start_leveling()
                 Rayfield:Notify({Title = "Auto Level", Content = "All pets reached target weight. Swapping...", Duration = 3})
                 
                 -- Unequip Active Pets
-                for _, pet in pairs(myActivePets) do
-                    if not check_blacklist(pet.UUID) then
-                        if PetsService then PetsService:UnequipPet(pet.UUID) end
+                for _, pet in pairs(selectedPets) do
+                    local uuid = getgenv().InventoryMap[pet]
+                        if PetsService and uuid then print("Unequipping pet UUID:", uuid,pet) PetsService:UnequipPet(uuid) end
                         task.wait(0.1)
-                    end
                 end
                 
                 task.wait(0.5)
@@ -231,10 +230,11 @@ local function start_leveling()
                 -- We iterate through the user's selection in the Dropdown
                 local equippedCount = 0
                 for _, fullString in pairs(selectedPets) do
-                    if equippedCount >= 4 then break end -- Safety limit (max equip slot usually 4-5)
+                    -- if equippedCount >= 4 then break end -- Safety limit (max equip slot usually 4-5)
                     
                     local uuid = getgenv().InventoryMap[fullString]
                     if uuid then
+                        print("Equipping pet:", fullString, "UUID:", uuid)
                         place_pet(uuid)
                         equippedCount = equippedCount + 1
                         task.wait(0.2)
