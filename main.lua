@@ -129,25 +129,32 @@ local function refreshPetData()
     
     -- Helper to process a pet entry
     local function addPetToList(petData, isEquipped)
-        local uuid = petData.UUID or petData:GetAttribute("PET_UUID") or "NoUUID"
-        local full = petData.Name or (petData.PetData and petData.PetData.Name) or "Unnamed"
-        
-        -- Clean Name
-        local name = full:match("^(.-)%s*%[") or full
-        
-        -- Get Level
+        local uuid = "NoUUID"
+        local full = "Unnamed"
         local level = 1
-        if isEquipped then
-            level = petData.PetData and petData.PetData.Level or 1
-        else
+
+        -- FIX: Safely check if petData is a Tool Instance or a Table
+        if typeof(petData) == "Instance" then
+            -- It is a Tool in Backpack
+            uuid = petData:GetAttribute("PET_UUID") or petData:GetAttribute("UUID") or "NoUUID"
+            full = petData.Name
+            
             local lvlAttr = petData:GetAttribute("Level")
             local lvlMatch = full:match("Level%s*(%d+)") or full:match("Lvl%s*(%d+)") or full:match("Age%s*(%d+)")
             level = lvlAttr or (lvlMatch and tonumber(lvlMatch)) or 1
+        elseif type(petData) == "table" then
+            -- It is a Data Table from PetUtilities
+            uuid = petData.UUID or "NoUUID"
+            full = petData.Name or (petData.PetData and petData.PetData.Name) or "Unnamed"
+            level = petData.PetData and petData.PetData.Level or 1
         end
+        
+        -- Clean Name
+        local name = full:match("^(.-)%s*%[") or full
 
         -- Format String: [EQ] {123456} Level 50 Dog
         local status = isEquipped and "[EQ] " or ""
-        local shortUUID = uuid:sub(1, 6)
+        local shortUUID = tostring(uuid):sub(1, 6)
         local displayString = string.format("%s{%s} Level %s %s", status, shortUUID, level, name)
         
         -- Store strict mapping
@@ -307,7 +314,7 @@ Tab:CreateInput({
         if num then weight_to_remove = num end
     end
 })
---a
+
 Tab:CreateToggle({
     Name = "Start Auto Leveling",
     CurrentValue = false,
