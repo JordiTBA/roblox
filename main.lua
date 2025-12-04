@@ -101,47 +101,55 @@ local function check_blacklist(UUID)
 end 
 
 local function start_leveling()
-task.spawn(
+    task.spawn(function()
+        if not PetUtilities then return end
 
-    function()
-        task.wait(1)
-        if PetUtilities then
-            local success, myActivePets =
-                pcall(
-                function()
-                    return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+        local success, myActivePets = pcall(function()
+            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+        end)
+
+        if success and myActivePets and #myActivePets > 0 then
+            -- 1. Check if ALL active pets are overweight
+            local allReadyToRemove = true
+            
+            print("--- CHECKING PET WEIGHTS ---")
+            for _, pet in pairs(myActivePets) do
+                local weight = tonumber(calculate_weight(pet)) or 0
+                -- If ANY pet is still skinny (under weight), stop the process
+                if weight < weight_to_remove then
+                    allReadyToRemove = false
+                    print(string.format("Waiting for: %s | Current: %.2f / %d", pet.PetData.Name, weight, weight_to_remove))
                 end
-            )
-            print("--- ACTIVE PETS LIST ---")
-            for i, pet in pairs(myActivePets) do
-                local pName = (pet.PetData and pet.PetData.Name) or "Unnamed"
-                local pType = pet.PetType or "Unknown"
-                local pID = pet.UUID or "No UUID"
-                local weight = tonumber(calculate_weight(pet))
-                print(string.format("[%d] %s | Type: %s | ID: %s | Weight: %.2fkg", i, pName, pType, pID, weight))
-                if weight >= weight_to_remove and not check_blacklist(pet.UUID) then
-                    PetsService_upvr_2:UnequipPet(pet.UUID)
-                    Rayfield:Notify({
-                        Title = "Auto Level",
-                        Content = "Removing " .. (pName or "Pet") .. " (" .. weight .. "kg)",
-                        Duration = 2
-                    })
-                    for _, fullString in pairs(selectedPets) do
-                        print(fullString)
-                        local realName = fullString:match("^(.-)%s*%[") or fullString
-                        print("realName" .. realName)
-                        local petUUID = select_pet(realName)
-                        if petUUID then
-                            place_pet(petUUID)
-                            task.wait(0.5)
-                            break
-                        end
+            end
+
+            -- 2. Only unequip if ALL are ready
+            if allReadyToRemove then
+                print("ALL PETS READY! SWAPPING NOW...")
+                
+                -- Unequip All Active Pets first
+                for _, pet in pairs(selectedPets) do
+                    -- Optional: Check blacklist here if you want
+                    local uuid = getgenv().InventoryMap[pet]
+                    if uuid then
+                        print("Unequipping Pet UUID: " .. uuid)
+                        PetsService_upvr_2:UnequipPet(uuid)
+                        task.wait(0.1) -- Small delay to prevent network choke
+                    end
+                end
+                
+                -- Equip New Pets from Selected List
+                -- Note: This loops through your selection and tries to equip them
+                for _, fullString in pairs(selectedPets) do
+                    local uuid = getgenv().InventoryMap[fullString] -- Use the Map we made in refreshPetData
+                    if uuid then
+                        print("Equipping Pet UUID: " .. uuid)
+                        place_pet(uuid)
+                        task.wait(0.2)
                     end
                 end
             end
         end
-    end
-)
+    end)
 end
 
 
