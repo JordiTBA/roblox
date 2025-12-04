@@ -348,7 +348,7 @@ local function start_leveling()
                             end
                             end
 
-
+                            print("Checking pet weights...")
                             -- CHECK WEIGHT LOGIC
                             local allReady = true
                             local activeCount = 0
@@ -358,7 +358,7 @@ local function start_leveling()
                                     for _, pet in pairs(myActivePets) do
                                         if pet.UUID == uuid then
                                             local weight = tonumber(calculate_weight(pet)) or 0
-                                            -- print("Checking:", pet.UUID, "Weight:", weight)
+                                            print("Checking:", pet.UUID, "Weight:", weight)
                                             if weight < weight_to_remove then
                                                 allReady = false
                                             end
