@@ -1,3 +1,4 @@
+--
 local success, Rayfield =
     pcall(
     function()
@@ -22,7 +23,6 @@ if not success or not Rayfield then
 end
 
 getgenv().Leveling = false
--- Removed getgenv().blacklistedUUIDs
 getgenv().InventoryMap = {} -- Maps Display String -> Real UUID
 getgenv().Mode = "leveling" -- leveling // reseting
 local Window =
@@ -315,7 +315,6 @@ local function start_leveling()
                         if success and myActivePets then
                             -- EQUIP PETS LOGIC
                             print("Equipping selected pets...")
-                            if get_total_equipped_pets() < #selectedPets then
                                 for index, value in ipairs(selectedPets) do
                                     local uuid = getgenv().InventoryMap[value]
                                     if uuid and not check_pet_active(uuid) then
@@ -324,7 +323,6 @@ local function start_leveling()
                                         task.wait(0.2)
                                     end
                                 end
-                            end
 
                             print("Checking pet weights...")
                             -- CHECK WEIGHT LOGIC
