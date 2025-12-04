@@ -23,7 +23,6 @@ end
 
 getgenv().Leveling = false
 getgenv().blacklistedUUIDs = {}
-getgenv().isBusy = false -- Fixed: Added isBusy back to prevent crashes
 getgenv().InventoryMap = {} -- Maps Display String -> Real UUID
 getgenv().Mode = "leveling" -- leveling // reseting
 local Window =
@@ -269,14 +268,10 @@ end
 print(check_loadout())
 local function start_leveling()
     -- FIXED: Added Busy Check at the start to prevent overlapping threads
-    if getgenv().isBusy then
-        return
-    end
-    getgenv().isBusy = true
+
 
     task.spawn(
         function()
-            -- Wrap in pcall to ensure isBusy gets reset even if code errors
             local pcallSuccess, pcallError =
                 pcall(
                 function()
@@ -433,7 +428,6 @@ local function start_leveling()
             if not pcallSuccess then
                 warn("Auto Level Error: " .. tostring(pcallError))
             end
-            getgenv().isBusy = false -- Unlock for next cycle
         end
     )
 end
