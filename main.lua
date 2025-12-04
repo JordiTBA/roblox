@@ -372,7 +372,7 @@ local function start_leveling()
                         local uuid = getgenv().InventoryMap[fullString]
                         for index, value in ipairs(myActivePets) do
                             if value.UUID == uuid then
-                                print("Found active pet for reset check:", uuid, value.PetData.Level,(value.PetData.Level or 1) )
+                                print("Found active pet for reset check:", uuid, value.PetData.Level,(value.PetData.Level or 1)>1 )
                                 if value.PetData and (value.PetData.Level or 1) > 1 then
                                     allreset = false
                                 end
