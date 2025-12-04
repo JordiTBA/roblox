@@ -261,11 +261,43 @@ local function check_loadout()
     if PlayerData and PlayerData.PetsData then
         local currentLoadout = PlayerData.PetsData.SelectedPetLoadout or 1
         print("You are currently on Loadout: " .. currentLoadout)
-        return currentLoadout
+        return tonumber(currentLoadout)
     end
     return 1
 end
-print(check_loadout())
+local function get_max_slots()
+    local success, result =
+        pcall(
+        function()
+            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+            local data = DataService:GetData()
+            -- Commonly used keys for Max Equip in this game framework
+            return data.PetsData.MutableStats.MaxEquippedPets or 0
+        end
+    )
+
+    if success and result then
+        return result
+    end
+    return 0
+end
+local function get_total_equipped_pets()
+    local success, result =
+        pcall(
+        function()
+            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+            local data = DataService:GetData()
+            -- Commonly used keys for Max Equip in this game framework
+            return #data.PetsData.EquippedPets or 0
+        end
+    )
+
+    if success and result then
+        return result
+    end
+    return 0
+end
+
 local function start_leveling()
     -- FIXED: Added Busy Check at the start to prevent overlapping threads
 
@@ -275,18 +307,29 @@ local function start_leveling()
                 pcall(
                 function()
                     -- 1. Check/Set Leveling Loadout
-
+                    if #selectedPets > get_max_slots() then
+                        Rayfield:Notify(
+                            {
+                                Title = "Auto Level",
+                                Content = "Selected pets exceed max equip slots! turning off leveling.",
+                                Duration = 5
+                            }
+                        )
+                        getgenv().Leveling = false
+                        return
+                    end
                     print("Current Mode:", getgenv().Mode)
 
                     if getgenv().Mode == "leveling" then
+                        print("Checking Loadout for Leveling...")
                         while check_loadout() ~= 1 do
                             Rayfield:Notify(
                                 {Title = "Auto Level", Content = "Switching to Loadout 1 for leveling...", Duration = 3}
                             )
                             change_loadout(1)
                             task.wait(1) -- Wait for loadout swap
-                            return -- Exit this cycle to let loadout update
                         end
+                        print("Loadout 1 confirmed.")
                         if not PetUtilities then
                             return
                         end
@@ -299,12 +342,15 @@ local function start_leveling()
                         )
                         if success and myActivePets then
                             -- EQUIP PETS LOGIC
-                            for index, value in ipairs(selectedPets) do
-                                local uuid = getgenv().InventoryMap[value]
-                                if uuid and not check_pet_active(uuid) then
-                                    print("Placing pet:", uuid)
-                                    place_pet(uuid)
-                                    task.wait(0.2)
+                            print("Equipping selected pets...")
+                            if get_total_equipped_pets() < #selectedPets then
+                                for index, value in ipairs(selectedPets) do
+                                    local uuid = getgenv().InventoryMap[value]
+                                    if uuid and not check_pet_active(uuid) then
+                                        print("Placing pet:", uuid)
+                                        place_pet(uuid)
+                                        task.wait(0.2)
+                                    end
                                 end
                             end
 
@@ -313,19 +359,18 @@ local function start_leveling()
                             local activeCount = 0
                             for index, value in ipairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[value]
-                                if uuid  then
-                            for _, pet in pairs(myActivePets) do
-                                if pet.UUID == uuid then
-                                    local weight = tonumber(calculate_weight(pet)) or 0
-                                    -- print("Checking:", pet.UUID, "Weight:", weight)
-                                    if weight < weight_to_remove then
-                                        allReady = false
+                                if uuid then
+                                    for _, pet in pairs(myActivePets) do
+                                        if pet.UUID == uuid then
+                                            local weight = tonumber(calculate_weight(pet)) or 0
+                                            -- print("Checking:", pet.UUID, "Weight:", weight)
+                                            if weight < weight_to_remove then
+                                                allReady = false
+                                            end
+                                        end
                                     end
                                 end
                             end
-                                end
-                            end
-
 
                             if allReady and activeCount > 0 then
                                 Rayfield:Notify(
