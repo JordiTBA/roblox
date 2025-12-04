@@ -30,6 +30,8 @@ local petList = {}
 local selectedPets = {}
 local weight_to_remove = 0 
 -- // Blacklist Variables & Helper // --
+getgenv().InventoryMap = {} -- Map to store UUIDs from the dropdown
+
 getgenv().blacklistedUUIDs = {} -- This table will store the UUIDs of pets you selected
 local ActivePetMap = {} -- Maps the Dropdown Display String -> Real UUID
 
@@ -142,39 +144,34 @@ task.spawn(
 )
 end
 
+
 local function refreshPetData()
     petList = {}
-    local counts = {}
+    getgenv().InventoryMap = {} -- Reset map
 
     for _, pet in pairs(petsFolder:GetChildren()) do
         if pet:GetAttribute("PetType") then
             local full = pet.Name
-            
+            local uuid = pet:GetAttribute("PET_UUID") or "NoUUID"
             local name = full:match("^(.-)%s*%[") or full
+            local level = pet:GetAttribute("Level")
+            if not level then
+                local lvlMatch = full:match("Level%s*(%d+)") or full:match("Lvl%s*(%d+)") or full:match("Age%s*(%d+)")
+                level = lvlMatch and tonumber(lvlMatch) or 1
+            end
             local weightStr = full:match("%[(.-)%s*KG%]")
-            local weight = weightStr and tonumber(weightStr) or nil
-            local ageStr = full:match("%[Age%s*(%d+)%]")
-            local age = ageStr and tonumber(ageStr) or nil
-
-            -- LOGIKA BARU (Tanpa goto):
-            -- 1. Cek apakah weight ada
-            -- 2. Cek apakah weight memenuhi syarat hapus
-            -- 3. Cek pengecualian (Age 1 & Weight >= 6.6)
+            local weight = weightStr and tonumber(weightStr) or 0
             
-            if weight and weight < weight_to_remove then
-                if not (age == 1 and weight >= 6.6) then
-                    table.insert(petList, {Name = name, Instance = pet})
-                    counts[name] = (counts[name] or 0) + 1
-                end
+            if weight < weight_to_remove then
+                 local displayString = string.format("{%s} Level %s %s", uuid:sub(1, 6), level, name)
+                 
+                 getgenv().InventoryMap[displayString] = uuid
+                 
+                 table.insert(petList, displayString)
             end
         end
     end
-
-    local formattedList = {}
-    for name, count in pairs(counts) do
-        table.insert(formattedList, name .. " [" .. count .. "]")
-    end
-    return formattedList
+    return petList
 end
 -- // GUI Elements // --
 
