@@ -266,32 +266,26 @@ local function check_loadout()
     return 1
 end
 local function get_max_slots()
-    local success, result =
-        pcall(
-        function()
-            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
-            local data = DataService:GetData()
-            -- Commonly used keys for Max Equip in this game framework
-            return data.PetsData.MutableStats.MaxEquippedPets or 0
-        end
-    )
-
+    local success, result = pcall(function()
+        local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+        local data = DataService:GetData()
+        -- Commonly used keys for Max Equip in this game framework
+        return data.PetsData.MutableStats.MaxEquippedPets or 0
+    end)
+    
     if success and result then
         return result
     end
     return 0
 end
 local function get_total_equipped_pets()
-    local success, result =
-        pcall(
-        function()
-            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
-            local data = DataService:GetData()
-            -- Commonly used keys for Max Equip in this game framework
-            return #data.PetsData.EquippedPets or 0
-        end
-    )
-
+    local success, result = pcall(function()
+        local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+        local data = DataService:GetData()
+        -- Commonly used keys for Max Equip in this game framework
+        return #data.PetsData.EquippedPets or 0
+    end)
+    
     if success and result then
         return result
     end
@@ -316,7 +310,7 @@ local function start_leveling()
                             }
                         )
                         getgenv().Leveling = false
-                        return
+                        return 
                     end
                     print("Current Mode:", getgenv().Mode)
 
@@ -344,15 +338,16 @@ local function start_leveling()
                             -- EQUIP PETS LOGIC
                             print("Equipping selected pets...")
                             if get_total_equipped_pets() < #selectedPets then
-                                for index, value in ipairs(selectedPets) do
-                                    local uuid = getgenv().InventoryMap[value]
-                                    if uuid and not check_pet_active(uuid) then
-                                        print("Placing pet:", uuid)
-                                        place_pet(uuid)
-                                        task.wait(0.2)
-                                    end
+                                                            for index, value in ipairs(selectedPets) do
+                                local uuid = getgenv().InventoryMap[value]
+                                if uuid and not check_pet_active(uuid) then
+                                    print("Placing pet:", uuid)
+                                    place_pet(uuid)
+                                    task.wait(0.2)
                                 end
                             end
+                            end
+
 
                             -- CHECK WEIGHT LOGIC
                             local allReady = true
@@ -595,9 +590,12 @@ Tab:CreateToggle(
                             start_leveling()
                             task.wait(1.5)
                         end
-                        getgenv().Mode = "leveling"
                     end
                 )
+            else
+                print("Auto Leveling Stopped.")
+                        getgenv().Mode = "leveling"
+
             end
         end
     }
