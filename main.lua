@@ -351,7 +351,6 @@ local function start_leveling()
                             print("Checking pet weights...")
                             -- CHECK WEIGHT LOGIC
                             local allReady = true
-                            local activeCount = 0
                             for index, value in ipairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[value]
                                 if uuid then
@@ -367,7 +366,7 @@ local function start_leveling()
                                 end
                             end
 
-                            if allReady and activeCount > 0 then
+                            if allReady then
                                 Rayfield:Notify(
                                     {
                                         Title = "Auto Level",
