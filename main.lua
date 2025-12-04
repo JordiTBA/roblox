@@ -280,19 +280,11 @@ local function start_leveling()
             local pcallSuccess, pcallError =
                 pcall(
                 function()
-                    if not PetUtilities then
-                        return
-                    end
+                    -- 1. Check/Set Leveling Loadout
 
-                    local success, myActivePets =
-                        pcall(
-                        function()
-                            return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
-                        end
-                    )
+                    print("Current Mode:", getgenv().Mode)
 
-                    if success and myActivePets then
-                        -- 1. Check/Set Leveling Loadout
+                    if getgenv().Mode == "leveling" then
                         while check_loadout() ~= 1 do
                             Rayfield:Notify(
                                 {Title = "Auto Level", Content = "Switching to Loadout 1 for leveling...", Duration = 3}
@@ -301,10 +293,17 @@ local function start_leveling()
                             task.wait(1) -- Wait for loadout swap
                             return -- Exit this cycle to let loadout update
                         end
+                        if not PetUtilities then
+                            return
+                        end
 
-                        print("Current Mode:", getgenv().Mode)
-
-                        if getgenv().Mode == "leveling" then
+                        local success, myActivePets =
+                            pcall(
+                            function()
+                                return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+                            end
+                        )
+                        if success and myActivePets then
                             -- EQUIP PETS LOGIC
                             for index, value in ipairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[value]
@@ -340,78 +339,90 @@ local function start_leveling()
                                 )
 
                                 -- Unequip Active Pets (Only chosen ones)
+                                local make_sure = false
+                                while not make_sure do
+                                    local check = false
+                                    for index, value in ipairs(myActivePets) do
+                                        for _, pet in pairs(selectedPets) do
+                                            local uuid = getgenv().InventoryMap[pet]
+                                            if PetsService and value.UUID == uuid then
+                                                check = true
+                                                PetsService:UnequipPet(uuid)
+                                            end
+                                            task.wait(0.5)
+                                        end
+                                    end
+                                    if check then
+                                        make_sure = true
+                                        break
+                                    end
+                                    task.wait(1)
+                                end
+
+                                task.wait(0.5)
+                                getgenv().Mode = "reseting"
+                            end
+                        end
+                    elseif getgenv().Mode == "reseting" then
+                        -- RESET LOGIC (Fixed Loadout ID Mismatch)
+                        while check_loadout() ~= 3 do
+                            Rayfield:Notify(
+                                {Title = "Auto Level", Content = "Switching to Loadout 2 (Reset)...", Duration = 3}
+                            )
+                            change_loadout(3) -- FIXED: Was 3, changed to 2 to match check
+                            task.wait(2)
+                        end
+                        for index, value in ipairs(selectedPets) do
+                            local uuid = getgenv().InventoryMap[value]
+                            if uuid and not check_pet_active(uuid) then
+                                place_pet(uuid)
+                                task.wait(0.2)
+                            end
+                        end
+                        -- Re-fetch pets to see status
+                        local s, currentPets =
+                            pcall(
+                            function()
+                                return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+                            end
+                        )
+
+                        if s and currentPets then
+                            local allreset = true
+
+                            -- Re-equip pets to check their level
+
+                            -- Scan levels
+                            local anyPetFound = false
+                            for _, fullString in pairs(selectedPets) do
+                                local uuid = getgenv().InventoryMap[fullString]
+                                for _, value in ipairs(currentPets) do
+                                    if value.UUID == uuid then
+                                        anyPetFound = true
+                                        local lvl = value.PetData.Level or 1
+                                        if lvl > 1 then
+                                            print("Pet not reset:", uuid, lvl)
+                                            allreset = false
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+
+                            if allreset and anyPetFound then
+                                print("allreset", allreset, "anypet", anyPetFound)
+                                Rayfield:Notify(
+                                    {Title = "Auto Level", Content = "Pets Reset! Resuming...", Duration = 3}
+                                )
+                                getgenv().Mode = "leveling"
+
+                                -- Unequip everything to prepare for clean leveling start
                                 for _, pet in pairs(selectedPets) do
                                     local uuid = getgenv().InventoryMap[pet]
                                     if PetsService and uuid then
                                         PetsService:UnequipPet(uuid)
                                     end
                                     task.wait(0.1)
-                                end
-
-                                task.wait(0.5)
-                                getgenv().Mode = "reseting"
-                            end
-                        elseif getgenv().Mode == "reseting" then
-                            -- RESET LOGIC (Fixed Loadout ID Mismatch)
-                            while check_loadout() ~= 3 do
-                                Rayfield:Notify(
-                                    {Title = "Auto Level", Content = "Switching to Loadout 2 (Reset)...", Duration = 3}
-                                )
-                                change_loadout(3) -- FIXED: Was 3, changed to 2 to match check
-                                task.wait(2)
-                            end
-                            for index, value in ipairs(selectedPets) do
-                                local uuid = getgenv().InventoryMap[value]
-                                if uuid and not check_pet_active(uuid) then
-                                    place_pet(uuid)
-                                    task.wait(0.2)
-                                end
-                            end
-                            -- Re-fetch pets to see status
-                            local s, currentPets =
-                                pcall(
-                                function()
-                                    return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
-                                end
-                            )
-
-                            if s and currentPets then
-                                local allreset = true
-
-                                -- Re-equip pets to check their level
-
-                                -- Scan levels
-                                local anyPetFound = false
-                                for _, fullString in pairs(selectedPets) do
-                                    local uuid = getgenv().InventoryMap[fullString]
-                                    for _, value in ipairs(currentPets) do
-                                        if value.UUID == uuid then
-                                            anyPetFound = true
-                                            local lvl = value.PetData.Level or 1
-                                            if lvl > 1 then
-                                                print("Pet not reset:", uuid, lvl)
-                                                allreset = false
-                                                break
-                                            end
-                                        end
-                                    end
-                                end
-
-                                if allreset and anyPetFound then
-                                    print("allreset", allreset, "anypet", anyPetFound)
-                                    Rayfield:Notify(
-                                        {Title = "Auto Level", Content = "Pets Reset! Resuming...", Duration = 3}
-                                    )
-                                    getgenv().Mode = "leveling"
-
-                                    -- Unequip everything to prepare for clean leveling start
-                                    for _, pet in pairs(selectedPets) do
-                                        local uuid = getgenv().InventoryMap[pet]
-                                        if PetsService and uuid then
-                                            PetsService:UnequipPet(uuid)
-                                        end
-                                        task.wait(0.1)
-                                    end
                                 end
                             end
                         end
