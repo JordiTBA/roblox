@@ -584,6 +584,13 @@ Tab:CreateToggle(
         Callback = function(Value)
             getgenv().Leveling = Value
             if Value then
+                Rayfield:Notify(
+                    {
+                        Title = "Auto Level",
+                        Content = "Auto Leveling Started.",
+                        Duration = 3
+                    }
+                )
                 task.spawn(
                     function()
                         while getgenv().Leveling do
@@ -593,6 +600,13 @@ Tab:CreateToggle(
                     end
                 )
             else
+                Rayfield:Notify(
+                    {
+                        Title = "Auto Level",
+                        Content = "Auto Leveling Stopped.",
+                        Duration = 3
+                    }
+                )
                 print("Auto Leveling Stopped.")
                         getgenv().Mode = "leveling"
 
