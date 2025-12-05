@@ -34,7 +34,6 @@ end
 
 -- Get Player's Pets
 local s, currentPets = pcall(function()
-    -- Getting pets sorted (Modify arguments as needed for your specific target list)
     return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
 end)
 
@@ -45,14 +44,18 @@ end
 
 -- Main Execution
 for index, value in ipairs(currentPets) do
-    local petUUID = value.UUID
+    local petUUID = value.UUID -- This already contains the "{ }" braces based on your logs
     local currentMutation = value.PetData.MutationType
     
     print("Processing Pet:", petUUID, "| Mutation:", table_mutate[currentMutation] or "None")
 
-    -- Find the Physical Model in Workspace
-    -- The physical structure usually wraps the UUID in curly braces: {UUID}
+    -- FIX: Use the UUID directly since it already has braces.
+    -- We force check if braces exist just in case, to ensure consistency.
     local physicalPetName = petUUID
+    if string.sub(physicalPetName, 1, 1) ~= "{" then
+        physicalPetName = "{" .. physicalPetName .. "}"
+    end
+    
     local petModel = nil
 
     -- Check likely paths for the physical model
@@ -67,14 +70,16 @@ for index, value in ipairs(currentPets) do
 
     -- Fire Event
     if petModel then
-        -- IMPORTANT: The server expects the MODEL, not the RootPart
+        -- The server script likely uses petModel:GetAttribute("UUID") or checks the name.
+        -- Passing the Model itself is usually the correct argument for these interaction events.
         PetShardService_RE:FireServer("ApplyShard", petModel)
-        warn("Shard applied to:", petUUID)
         
-        -- Break after one use to prevent using all shards at once. 
-        -- Remove 'break' if you want to loop through all pets.
+        warn("✅ Shard applied to:", physicalPetName)
+        
+        -- IMPORTANT: Break is here so you only use 1 shard at a time. 
+        -- Remove 'break' if you want to shard your entire inventory instantly.
         break 
     else
-        warn("Physical model not found for UUID:", petUUID)
+        warn("❌ Physical model not found for name:", physicalPetName)
     end
 end
