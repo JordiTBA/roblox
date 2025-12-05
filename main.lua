@@ -52,7 +52,7 @@ for index, value in ipairs(currentPets) do
 
     -- Find the Physical Model in Workspace
     -- The physical structure usually wraps the UUID in curly braces: {UUID}
-    local physicalPetName = "{" .. petUUID .. "}"
+    local physicalPetName = petUUID
     local petModel = nil
 
     -- Check likely paths for the physical model
