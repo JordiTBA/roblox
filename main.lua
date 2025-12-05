@@ -1,8 +1,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 
--- Module Loader
+-- 1. WAIT FOR DATA LOADING
 local PetUtilities
 local ModulesLoaded, LoadError = pcall(function()
     local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
@@ -15,71 +16,98 @@ local ModulesLoaded, LoadError = pcall(function()
     end
 end)
 
-if not ModulesLoaded then
-    warn("Failed to load modules:", LoadError)
-    return
-end
+if not ModulesLoaded then warn("Failed to load modules:", LoadError) return end
 
--- Services & Tables
-local PetMutationRegistry = require(ReplicatedStorage.Data.PetRegistry.PetMutationRegistry)
 local PetShardService_RE = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetShardService_RE")
 
--- Debug Table for Mutations
-local table_mutate = {}
-if PetMutationRegistry.EnumToPetMutation then
-    for id, name in pairs(PetMutationRegistry.EnumToPetMutation) do
-        table_mutate[id] = tostring(name)
+-- 2. FUNCTION TO EQUIP SHARD
+local function EquipShard()
+    local char = LocalPlayer.Character
+    if not char then return false end
+    
+    -- Check if already holding it
+    local equipped = char:FindFirstChild("Pet Shard") or char:FindFirstChild("Cleansing Pet Shard") or char:FindFirstChildWhichIsA("Tool")
+    if equipped and string.find(equipped.Name, "Shard") then
+        return equipped
     end
+
+    -- Look in Backpack
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        local shard = backpack:FindFirstChild("Pet Shard") or backpack:FindFirstChild("Cleansing Pet Shard")
+        -- Try finding any item with "Shard" in name if exact match fails
+        if not shard then
+            for _, tool in pairs(backpack:GetChildren()) do
+                if tool:IsA("Tool") and string.find(tool.Name, "Shard") then
+                    shard = tool
+                    break
+                end
+            end
+        end
+        
+        if shard then
+            char.Humanoid:EquipTool(shard)
+            task.wait(0.2) -- Wait for server to register equip
+            return shard
+        end
+    end
+    return false
 end
 
--- Get Player's Pets
+-- 3. GET PETS
 local s, currentPets = pcall(function()
     return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
 end)
 
-if not s or not currentPets then
-    warn("Failed to retrieve pet data")
+if not s or not currentPets then warn("Failed to retrieve pet data") return end
+
+-- 4. MAIN LOOP
+local tool = EquipShard()
+if not tool then
+    warn("❌ You do not have a Pet Shard in your inventory!")
     return
 end
 
--- Main Execution
+print("✅ Shard Equipped. Scanning pets...")
+
 for index, value in ipairs(currentPets) do
-    local petUUID = value.UUID -- This already contains the "{ }" braces based on your logs
-    local currentMutation = value.PetData.MutationType
+    local rawUUID = value.UUID -- This likely looks like "{f307...}"
     
-    print("Processing Pet:", petUUID, "| Mutation:", table_mutate[currentMutation] or "None")
---
-    -- FIX: Use the UUID directly since it already has braces.
-    -- We force check if braces exist just in case, to ensure consistency.
-    local physicalPetName = petUUID
-    if string.sub(physicalPetName, 1, 1) ~= "{" then
-        physicalPetName = "{" .. physicalPetName .. "}"
+    -- Ensure UUID has brackets for the search (Physical models use brackets)
+    local searchName = rawUUID
+    if string.sub(searchName, 1, 1) ~= "{" then
+        searchName = "{" .. searchName .. "}"
     end
     
+    -- Find the Physical Model
     local petModel = nil
+    local petsFolder = workspace:FindFirstChild("PetsPhysical")
 
-    -- Check likely paths for the physical model
-    if workspace.PetsPhysical:FindFirstChild("PetMover") then
-        petModel = workspace.PetsPhysical.PetMover:FindFirstChild(physicalPetName)
-    end
-    
-    -- Fallback check if it's directly in PetsPhysical
-    if not petModel then
-        petModel = workspace.PetsPhysical:FindFirstChild(physicalPetName)
+    if petsFolder then
+        -- Check inside PetMover (Common structure)
+        if petsFolder:FindFirstChild("PetMover") then
+            petModel = petsFolder.PetMover:FindFirstChild(searchName)
+        end
+        -- Check directly in PetsPhysical
+        if not petModel then
+            petModel = petsFolder:FindFirstChild(searchName)
+        end
     end
 
-    -- Fire Event
+    -- Verify it is a valid Pet Model
     if petModel then
-        -- The server script likely uses petModel:GetAttribute("UUID") or checks the name.
-        -- Passing the Model itself is usually the correct argument for these interaction events.
-        PetShardService_RE:FireServer("ApplyShard", petModel)
-        
-        warn("✅ Shard applied to:", physicalPetName)
-        
-        -- IMPORTANT: Break is here so you only use 1 shard at a time. 
-        -- Remove 'break' if you want to shard your entire inventory instantly.
-        break 
+        -- IMPORTANT: Check if it has the PetModel tag (Original script constraint)
+        if CollectionService:HasTag(petModel, "PetModel") or petModel:FindFirstChild("RootPart") then
+            
+            PetShardService_RE:FireServer("ApplyShard", petModel)
+            
+            print("✨ ATTEMPTED APPLY ON:", searchName)
+            
+            -- Keep break to test one at a time. Remove to do all.
+            break 
+        end
     else
-        warn("❌ Physical model not found for name:", physicalPetName)
+        -- Only warn if you expected this specific pet to be equipped
+        warn("Skipping " .. searchName .. " (Not in workspace/Not equipped)")
     end
 end
