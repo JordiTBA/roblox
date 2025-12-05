@@ -23,6 +23,7 @@ if not success or not Rayfield then
 end
 
 getgenv().Leveling = false
+getgenv().backup = {}
 getgenv().InventoryMap = {} -- Maps Display String -> Real UUID
 getgenv().Mode = "leveling" -- leveling // reseting
 local Window =
@@ -427,6 +428,12 @@ local function start_leveling()
                                         anyPetFound = true
                                         local lvl = value.PetData.Level or 1
                                         local weight = tonumber(calculate_weight(value))
+                                        
+                                        if lvl > 2 then
+                                            print("Pet not reset:", uuid, lvl)
+                                            allreset = false
+                                            break
+                                        end
                                         if lvl == 1 and weight >= 6.1 then
                                             table.remove(selectedPets, i)
                                             PetsService:UnequipPet(uuid)
@@ -438,11 +445,18 @@ local function start_leveling()
                                                     Duration = 4
                                                 }
                                             )
-                                        end
-                                        if lvl > 2 then
-                                            print("Pet not reset:", uuid, lvl)
-                                            allreset = false
-                                            break
+                                            local chnage_pet = getgenv().backup[1]
+                                            place_pet(getgenv().InventoryMap[chnage_pet]) 
+                                            task.wait(1)
+                                            table.remove(getgenv().backup, 1)
+                                            table.insert(selectedPets, chnage_pet)
+                                            Rayfield:Notify(
+                                                {
+                                                    Title = "Auto Level",
+                                                    Content = "Replaced with backup pet " .. chnage_pet .. ".",
+                                                    Duration = 4
+                                                }
+                                            )                                            
                                         end
                                     end
                                 end
@@ -459,7 +473,7 @@ local function start_leveling()
                                 local make_sure = false
                                 while not make_sure do
                                     local check = false
-                                    for index, value in ipairs(myActivePets) do
+                                    for index, value in ipairs(currentPets) do
                                         for _, pet in pairs(selectedPets) do
                                             local uuid = getgenv().InventoryMap[pet]
                                             if PetsService and value.UUID == uuid then
@@ -627,7 +641,7 @@ BackupDropdown = BackupTab:CreateDropdown({
     MultipleOptions = true,
     Flag = "BackupPetDropdown",
     Callback = function(Option)
-        print("Backup Pets Selected") 
+       getgenv().backup = Option
     end
 })
 
