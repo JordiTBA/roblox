@@ -48,7 +48,7 @@ for index, value in ipairs(currentPets) do
     local currentMutation = value.PetData.MutationType
     
     print("Processing Pet:", petUUID, "| Mutation:", table_mutate[currentMutation] or "None")
-
+--
     -- FIX: Use the UUID directly since it already has braces.
     -- We force check if braces exist just in case, to ensure consistency.
     local physicalPetName = petUUID
