@@ -945,7 +945,6 @@ Tab:CreateToggle(
     }
 )
 -- // Backup Pet Tab // --
-local BackupTab = Window:CreateTab("mutation ", 4483362458)
 
 local BackupDropdown
 
