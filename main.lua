@@ -23,9 +23,11 @@ if not success or not Rayfield then
 end
 
 getgenv().Leveling = false
+getgenv().Mutating = false
 getgenv().backup = {}
 getgenv().InventoryMap = {} -- Maps Display String -> Real UUID
-getgenv().Mode = "leveling" -- leveling // reseting
+getgenv().Mode_leveling = "leveling" -- leveling // reseting
+getgenv().Mode_mutating = "leveling" --leveling //mutate
 local Window =
     Rayfield:CreateWindow(
     {
@@ -44,6 +46,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local CurrentCamera = Workspace.CurrentCamera
+local PetMutationRegistry = require(ReplicatedStorage.Data.PetRegistry.PetMutationRegistry)
+local table_mutate = {}
+
+if PetMutationRegistry.EnumToPetMutation then
+    for id, name in pairs(PetMutationRegistry.EnumToPetMutation) do
+        print("ID: " .. id .. " | Mutation: " .. tostring(name))
+        table_mutate[id] = tostring(name)
+    end
+end
 
 -- // SAFE MODULE LOADING // --
 local PetUtilities, PetList_Data, PetsService
@@ -109,7 +120,7 @@ end
 local function place_pet(UUID)
     if not PetsService then
         return
-    end 
+    end
 
     local rayResult = ScreenRaycast()
     if not rayResult then
@@ -140,7 +151,7 @@ local function calculate_weight(petData)
     if PetUtilities then
         return string.format("%.2f", PetUtilities:CalculateWeight(baseWeight, math.min(level, 100)))
     else
-        return "0.00" 
+        return "0.00"
     end
 end
 
@@ -149,7 +160,7 @@ end
 -- // Core Logic: Refresh Data // --
 local function refreshPetData()
     local displayList = {}
-    getgenv().InventoryMap = {} 
+    getgenv().InventoryMap = {}
 
     local function addPetToList(petData, isEquipped)
         local uuid = "NoUUID"
@@ -248,12 +259,15 @@ local function check_loadout()
 end
 
 local function get_max_slots()
-    local success, result = pcall(function()
-        local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
-        local data = DataService:GetData()
-        return data.PetsData.MutableStats.MaxEquippedPets or 0
-    end)
-    
+    local success, result =
+        pcall(
+        function()
+            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+            local data = DataService:GetData()
+            return data.PetsData.MutableStats.MaxEquippedPets or 0
+        end
+    )
+
     if success and result then
         return result
     end
@@ -261,16 +275,147 @@ local function get_max_slots()
 end
 
 local function get_total_equipped_pets()
-    local success, result = pcall(function()
-        local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
-        local data = DataService:GetData()
-        return #data.PetsData.EquippedPets or 0
-    end)
-    
+    local success, result =
+        pcall(
+        function()
+            local DataService = require(game:GetService("ReplicatedStorage").Modules.DataService)
+            local data = DataService:GetData()
+            return #data.PetsData.EquippedPets or 0
+        end
+    )
+
     if success and result then
         return result
     end
     return 0
+end
+local function start_mutating()
+    task.spawn(
+        function()
+            if #selectedPets > get_max_slots() then
+                Rayfield:Notify(
+                    {
+                        Title = "Auto Mutate",
+                        Content = "Selected pets exceed max equip slots! turning off mutating.",
+                        Duration = 5
+                    }
+                )
+                getgenv().Mutating = false
+                return
+            end
+            if getgenv().Mode_mutating == "leveling" then
+                print("Checking Loadout for Leveling...")
+                while check_loadout() ~= 1 do
+                    Rayfield:Notify(
+                        {Title = "Auto Level", Content = "Switching to Loadout 1 for leveling...", Duration = 3}
+                    )
+                    change_loadout(1)
+                    task.wait(1)
+                end
+                print("Loadout 1 confirmed.")
+                if not PetUtilities then
+                    return
+                end
+
+                local success, myActivePets =
+                    pcall(
+                    function()
+                        return PetUtilities:GetPetsSortedByAge(LocalPlayer, 0, false, true)
+                    end
+                )
+                if success and myActivePets then
+                    -- EQUIP PETS LOGIC
+                    print("Equipping selected pets...")
+                    for index, value in ipairs(selectedPets) do
+                        local uuid = getgenv().InventoryMap[value]
+                        if uuid and not check_pet_active(uuid) then
+                            print("Placing pet:", uuid)
+                            place_pet(uuid)
+                            task.wait(0.2)
+                        end
+                    end
+
+                    print("Checking pet weights...")
+                    -- CHECK WEIGHT LOGIC
+                    -- local allReady = true
+                    -- for index, value in ipairs(selectedPets) do
+                    --     local uuid = getgenv().InventoryMap[value]
+                    --     if uuid then
+                    --         for _, pet in pairs(myActivePets) do
+                    --             if pet.UUID == uuid then
+                    --                 local weight = tonumber(calculate_weight(pet))
+                    --                 print("Checking:", pet.UUID, "Weight:", weight)
+                    --                 if weight and weight < weight_to_remove then
+                    --                     allReady = false
+                    --                 end
+                    --             end
+                    --         end
+                    --     end
+                    -- end
+                    local allReady = true
+
+                    for _, fullString in pairs(selectedPets) do
+                        local uuid = getgenv().InventoryMap[fullString]
+                        for _, value in ipairs(myActivePets) do
+                            if value.UUID == uuid then
+                                local lvl = value.PetData.Level or 1
+                                if lvl < 40 then
+                                    print("Pet not reset:", uuid, lvl)
+                                    allReady = false
+                                    break
+                                end
+                            end
+                        end
+                    end
+
+                    if allReady then
+                        Rayfield:Notify(
+                            {
+                                Title = "Auto Level",
+                                Content = "Target weight reached. Resetting...",
+                                Duration = 3
+                            }
+                        )
+
+                        -- Unequip Active Pets (Only chosen ones)
+                        local make_sure = false
+                        while not make_sure do
+                            local check = false
+                            for index, value in ipairs(myActivePets) do
+                                for _, pet in pairs(selectedPets) do
+                                    local uuid = getgenv().InventoryMap[pet]
+                                    if PetsService and value.UUID == uuid then
+                                        check = true
+                                        PetsService:UnequipPet(uuid)
+                                    end
+                                    task.wait(0.5)
+                                end
+                            end
+                            if check then
+                                getgenv().Mode_mutating = "mutate"
+                                task.wait(0.5)
+
+                                make_sure = true
+                                break
+                            end
+                            task.wait(1)
+                        end
+
+                        getgenv().Mode_mutating = "mutate"
+                    end
+                end
+            elseif getgenv().Mode_mutating == "mutate" then
+                while check_loadout() ~= 3 do
+                    Rayfield:Notify(
+                        {Title = "Auto Level", Content = "Switching to Loadout 2 (Mutate)...", Duration = 3}
+                    )
+                    change_loadout(3)
+                    task.wait(2)
+                end
+                
+            end
+        end
+    )
 end
 
 local function start_leveling()
@@ -289,18 +434,18 @@ local function start_leveling()
                             }
                         )
                         getgenv().Leveling = false
-                        return 
+                        return
                     end
-                    print("Current Mode:", getgenv().Mode)
+                    print("Current Mode:", Mode_leveling)
 
-                    if getgenv().Mode == "leveling" then
+                    if Mode_leveling == "leveling" then
                         print("Checking Loadout for Leveling...")
                         while check_loadout() ~= 1 do
                             Rayfield:Notify(
                                 {Title = "Auto Level", Content = "Switching to Loadout 1 for leveling...", Duration = 3}
                             )
                             change_loadout(1)
-                            task.wait(1) 
+                            task.wait(1)
                         end
                         print("Loadout 1 confirmed.")
                         if not PetUtilities then
@@ -316,14 +461,14 @@ local function start_leveling()
                         if success and myActivePets then
                             -- EQUIP PETS LOGIC
                             print("Equipping selected pets...")
-                                for index, value in ipairs(selectedPets) do
-                                    local uuid = getgenv().InventoryMap[value]
-                                    if uuid and not check_pet_active(uuid) then
-                                        print("Placing pet:", uuid)
-                                        place_pet(uuid)
-                                        task.wait(0.2)
-                                    end
+                            for index, value in ipairs(selectedPets) do
+                                local uuid = getgenv().InventoryMap[value]
+                                if uuid and not check_pet_active(uuid) then
+                                    print("Placing pet:", uuid)
+                                    place_pet(uuid)
+                                    task.wait(0.2)
                                 end
+                            end
 
                             print("Checking pet weights...")
                             -- CHECK WEIGHT LOGIC
@@ -342,7 +487,7 @@ local function start_leveling()
                             --         end
                             --     end
                             -- end
-                                                        local                                         allReady = true
+                            local allReady = true
 
                             for _, fullString in pairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[fullString]
@@ -382,7 +527,7 @@ local function start_leveling()
                                         end
                                     end
                                     if check then
-                                        getgenv().Mode = "reseting"
+                                        Mode_leveling = "reseting"
                                         task.wait(0.5)
 
                                         make_sure = true
@@ -391,25 +536,25 @@ local function start_leveling()
                                     task.wait(1)
                                 end
 
-                                getgenv().Mode = "reseting"
+                                Mode_leveling = "reseting"
                             end
                         end
-                    elseif getgenv().Mode == "reseting" then
+                    elseif Mode_leveling == "reseting" then
                         while check_loadout() ~= 3 do
                             Rayfield:Notify(
                                 {Title = "Auto Level", Content = "Switching to Loadout 2 (Reset)...", Duration = 3}
                             )
-                            change_loadout(3) 
+                            change_loadout(3)
                             task.wait(2)
                         end
                         for index, value in ipairs(selectedPets) do
-                                    local uuid = getgenv().InventoryMap[value]
-                                    if uuid and not check_pet_active(uuid) then
-                                        print("Placing pet:", uuid)
-                                        place_pet(uuid)
-                                        task.wait(0.2)
-                                    end
-                                end
+                            local uuid = getgenv().InventoryMap[value]
+                            if uuid and not check_pet_active(uuid) then
+                                print("Placing pet:", uuid)
+                                place_pet(uuid)
+                                task.wait(0.2)
+                            end
+                        end
                         local s, currentPets =
                             pcall(
                             function()
@@ -428,7 +573,7 @@ local function start_leveling()
                                         anyPetFound = true
                                         local lvl = value.PetData.Level or 1
                                         local weight = tonumber(calculate_weight(value))
-                                        
+
                                         if lvl > 2 then
                                             print("Pet not reset:", uuid, lvl)
                                             allreset = false
@@ -441,12 +586,13 @@ local function start_leveling()
                                             Rayfield:Notify(
                                                 {
                                                     Title = "Auto Level",
-                                                    Content = "Pet " .. fullString .. " fully reset and removed from list.",
+                                                    Content = "Pet " ..
+                                                        fullString .. " fully reset and removed from list.",
                                                     Duration = 4
                                                 }
                                             )
                                             local chnage_pet = getgenv().backup[1]
-                                            place_pet(getgenv().InventoryMap[chnage_pet]) 
+                                            place_pet(getgenv().InventoryMap[chnage_pet])
                                             task.wait(1)
                                             table.remove(getgenv().backup, 1)
                                             table.insert(selectedPets, chnage_pet)
@@ -456,7 +602,7 @@ local function start_leveling()
                                                     Content = "Replaced with backup pet " .. chnage_pet .. ".",
                                                     Duration = 4
                                                 }
-                                            )                                            
+                                            )
                                         end
                                     end
                                 end
@@ -467,7 +613,7 @@ local function start_leveling()
                                 Rayfield:Notify(
                                     {Title = "Auto Level", Content = "Pets Reset! Resuming...", Duration = 3}
                                 )
-                                getgenv().Mode = "leveling"
+                                Mode_leveling = "leveling"
 
                                 -- Unequip everything to prepare for clean leveling start
                                 local make_sure = false
@@ -484,7 +630,7 @@ local function start_leveling()
                                         end
                                     end
                                     if check then
-                                        getgenv().Mode = "leveling"
+                                        Mode_leveling = "leveling"
                                         task.wait(0.5)
 
                                         make_sure = true
@@ -601,21 +747,20 @@ Tab:CreateToggle(
                     }
                 )
                 print("Auto Leveling Stopped.")
-                getgenv().Mode = "leveling"
+                Mode_leveling = "leveling"
             end
         end
     }
 )
 -- // Backup Pet Tab // --
-local BackupTab = Window:CreateTab("Backup Pet", 4483362458)
+local BackupTab = Window:CreateTab("mutation ", 4483362458)
 
 local BackupDropdown
-
 
 local function get_unselected_pets()
     local all_pets = refreshPetData()
     local unselected = {}
-    
+
     local selected_lookup = {}
     for _, v in pairs(selectedPets) do
         selected_lookup[v] = true
@@ -630,25 +775,181 @@ local function get_unselected_pets()
     if #unselected == 0 then
         return {"No available backup pets"}
     end
+
+    return unselected
+end
+
+BackupDropdown =
+    Tab:CreateDropdown(
+    {
+        Name = "Backup Inventory (Unselected Pets)",
+        Options = {"Click Refresh to Load"},
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "BackupPetDropdown",
+        Callback = function(Option)
+            getgenv().backup = Option
+        end
+    }
+)
+
+Tab:CreateButton(
+    {
+        Name = "Refresh Backup List",
+        Callback = function()
+            local newList = get_unselected_pets()
+            BackupDropdown:Refresh(newList, true)
+        end
+    }
+)
+-- // Auto Mutate Tab // --
+local MutateTab = Window:CreateTab("Auto Mutate", 4483362458) -- Icon ID bisa diganti
+
+local MutateDropdown
+
+-- Fungsi refresh data khusus dropdown mutasi
+local function refreshMutateList()
+    local list = refreshPetData() -- Menggunakan fungsi refresh data utama
+    MutateDropdown:Refresh(list, true)
+end
+
+MutateDropdown = MutateTab:CreateDropdown({
+    Name = "Select Pets to Mutate",
+    Options = {"Click Refresh"},
+    CurrentOption = {},
+    MultipleOptions = true,
+    Flag = "MutateDropdown",
+    Callback = function(Option)
+        selectedMutationPets = Option -- Menyimpan ke variabel khusus mutasi
+        print("Selected Mutation Pets Updated")
+    end
+})
+
+MutateTab:CreateButton({
+    Name = "Refresh Pet List",
+    Callback = function()
+        refreshMutateList()
+    end
+})
+
+MutateTab:CreateToggle({
+    Name = "Start Auto Mutate",
+    CurrentValue = false,
+    Flag = "AutoMutateToggle",
+    Callback = function(Value)
+        getgenv().Mutating = Value
+        if Value then
+            Rayfield:Notify({
+                Title = "Auto Mutate",
+                Content = "Auto Mutating Started.",
+                Duration = 3
+            })
+            -- Spawn Loop Mutasi
+            task.spawn(function()
+                while getgenv().Mutating do
+                    start_mutating()
+                    task.wait(1.5)
+                end
+            end)
+        else
+            Rayfield:Notify({
+                Title = "Auto Mutate",
+                Content = "Auto Mutating Stopped.",
+                Duration = 3
+            })
+            getgenv().Mode_mutating = "leveling" -- Reset mode saat stop
+        end
+    end
+})
+-- // Variable Tambahan untuk Mutation Backup // --
+local backupMutationPets = {} 
+
+-- // Helper Function: Get Unselected Pets (Khusus Mutasi) // --
+local function get_unselected_mutation_pets()
+    local all_pets = refreshPetData() -- Ambil data terbaru
+    local unselected = {}
+    
+    -- Lookup table dari hewan yang SUDAH dipilih untuk MUTASI
+    local selected_lookup = {}
+    for _, v in pairs(selectedMutationPets) do
+        selected_lookup[v] = true
+    end
+
+    -- Filter: Masukkan jika TIDAK ada di selectedMutationPets
+    for _, pet_string in pairs(all_pets) do
+        if not selected_lookup[pet_string] then
+            table.insert(unselected, pet_string)
+        end
+    end
+
+    if #unselected == 0 then
+        return {"No available backup pets"}
+    end
     
     return unselected
 end
 
-BackupDropdown = BackupTab:CreateDropdown({
-    Name = "Backup Inventory (Unselected Pets)",
-    Options = {"Click Refresh to Load"},
+-- // UI Element: Backup untuk Mutasi // --
+MutateTab:CreateSection("Backup Settings")
+
+local MutateBackupDropdown
+MutateBackupDropdown = MutateTab:CreateDropdown({
+    Name = "Backup Mutation Inventory",
+    Options = {"Click Refresh"},
     CurrentOption = {},
     MultipleOptions = true,
-    Flag = "BackupPetDropdown",
+    Flag = "MutateBackupDropdown",
     Callback = function(Option)
-       getgenv().backup = Option
+        backupMutationPets = Option -- Menyimpan ke variabel backup khusus mutasi
+        print("Backup Mutation Pets Updated")
     end
 })
 
-BackupTab:CreateButton({
+MutateTab:CreateButton({
     Name = "Refresh Backup List",
     Callback = function()
-        local newList = get_unselected_pets()
-        BackupDropdown:Refresh(newList, true)
+        local newList = get_unselected_mutation_pets()
+        MutateBackupDropdown:Refresh(newList, true)
+    end
+})-- // Setup Data Mutasi // --
+local MutationOptions = {}
+getgenv().MutationNameMap = {} -- Mapping: Nama Mutasi -> ID (Untuk Logic nanti)
+getgenv().TargetMutations = {} -- List nama mutasi yang dipilih player
+
+-- Mengubah table_mutate (ID -> Nama) menjadi List Nama untuk Dropdown
+if table_mutate then
+    for id, name in pairs(table_mutate) do
+        local strName = tostring(name)
+        table.insert(MutationOptions, strName)
+        getgenv().MutationNameMap[strName] = id -- Simpan ID agar bisa dipanggil via Nama
+    end
+    -- Sortir abjad agar rapi
+    table.sort(MutationOptions)
+else
+    table.insert(MutationOptions, "No Mutations Found")
+end
+
+-- // UI Element: Target Mutation Selection // --
+MutateTab:CreateSection("Mutation Settings")
+
+MutateTab:CreateDropdown({
+    Name = "Select Target Mutation Types",
+    Options = MutationOptions,
+    CurrentOption = {},
+    MultipleOptions = true, -- Multiple Choice sesuai request
+    Flag = "MutationTypeSelect",
+    Callback = function(Option)
+        getgenv().TargetMutations = Option
+        
+        -- Debug Print (Opsional: untuk melihat ID dari mutasi yang dipilih)
+        print("Selected Mutations:")
+        for _, name in pairs(Option) do
+            local id = getgenv().MutationNameMap[name]
+            print("- " .. name .. " (ID: " .. tostring(id) .. ")")
+        end
     end
 })
+
+-- Label Helper
+MutateTab:CreateLabel("Selected mutations stored in getgenv().TargetMutations")
+MutateTab:CreateLabel("Logic Note: Implements Mode_mutating switching.")
