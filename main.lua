@@ -429,6 +429,8 @@ local function start_leveling()
                                         local weight = tonumber(calculate_weight(value))
                                         if lvl == 1 and weight >= 6.1 then
                                             table.remove(selectedPets, i)
+                                            PetsService:UnequipPet(uuid)
+
                                             Rayfield:Notify(
                                                 {
                                                     Title = "Auto Level",
