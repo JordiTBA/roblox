@@ -592,3 +592,49 @@ Tab:CreateToggle(
         end
     }
 )
+-- // Backup Pet Tab // --
+local BackupTab = Window:CreateTab("Backup Pet", 4483362458)
+
+local BackupDropdown
+
+
+local function get_unselected_pets()
+    local all_pets = refreshPetData()
+    local unselected = {}
+    
+    local selected_lookup = {}
+    for _, v in pairs(selectedPets) do
+        selected_lookup[v] = true
+    end
+
+    for _, pet_string in pairs(all_pets) do
+        if not selected_lookup[pet_string] then
+            table.insert(unselected, pet_string)
+        end
+    end
+
+    if #unselected == 0 then
+        return {"No available backup pets"}
+    end
+    
+    return unselected
+end
+
+BackupDropdown = BackupTab:CreateDropdown({
+    Name = "Backup Inventory (Unselected Pets)",
+    Options = {"Click Refresh to Load"},
+    CurrentOption = {},
+    MultipleOptions = true,
+    Flag = "BackupPetDropdown",
+    Callback = function(Option)
+        print("Backup Pets Selected") 
+    end
+})
+
+BackupTab:CreateButton({
+    Name = "Refresh Backup List",
+    Callback = function()
+        local newList = get_unselected_pets()
+        BackupDropdown:Refresh(newList, true)
+    end
+})
