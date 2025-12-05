@@ -420,13 +420,24 @@ local function start_leveling()
                             local allreset = true
 
                             local anyPetFound = false
-                            for _, fullString in pairs(selectedPets) do
+                            for i, fullString in pairs(selectedPets) do
                                 local uuid = getgenv().InventoryMap[fullString]
                                 for _, value in ipairs(currentPets) do
                                     if value.UUID == uuid then
                                         anyPetFound = true
                                         local lvl = value.PetData.Level or 1
-                                        if lvl > 1 then
+                                        local weight = tonumber(calculate_weight(value))
+                                        if lvl == 1 and weight >= 6.1 then
+                                            table.remove(selectedPets, i)
+                                            Rayfield:Notify(
+                                                {
+                                                    Title = "Auto Level",
+                                                    Content = "Pet " .. fullString .. " fully reset and removed from list.",
+                                                    Duration = 4
+                                                }
+                                            )
+                                        end
+                                        if lvl > 2 then
                                             print("Pet not reset:", uuid, lvl)
                                             allreset = false
                                             break
