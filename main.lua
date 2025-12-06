@@ -1130,6 +1130,32 @@ end
 -- // UI Element: Backup untuk Mutasi // --
 MutateTab:CreateSection("Backup Settings")
 
+
+local MutateBackupDropdown
+MutateBackupDropdown =
+    MutateTab:CreateDropdown(
+    {
+        Name = "Backup Mutation Inventory",
+        Options = {"Click Refresh"},
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "MutateBackupDropdown",
+        Callback = function(Option)
+            backupMutationPets = Option -- Menyimpan ke variabel backup khusus mutasi
+            print("Backup Mutation Pets Updated")
+        end
+    }
+)
+
+MutateTab:CreateButton(
+    {
+        Name = "Refresh Backup List",
+        Callback = function()
+            local newList = get_unselected_mutation_pets()
+            MutateBackupDropdown:Refresh(newList, true)
+        end
+    }
+)
 -- Search Input for Mutation Backup
 MutateTab:CreateInput({
     Name = "Search Mutation Backup",
@@ -1160,31 +1186,6 @@ MutateTab:CreateInput({
     end
 })
 
-local MutateBackupDropdown
-MutateBackupDropdown =
-    MutateTab:CreateDropdown(
-    {
-        Name = "Backup Mutation Inventory",
-        Options = {"Click Refresh"},
-        CurrentOption = {},
-        MultipleOptions = true,
-        Flag = "MutateBackupDropdown",
-        Callback = function(Option)
-            backupMutationPets = Option -- Menyimpan ke variabel backup khusus mutasi
-            print("Backup Mutation Pets Updated")
-        end
-    }
-)
-
-MutateTab:CreateButton(
-    {
-        Name = "Refresh Backup List",
-        Callback = function()
-            local newList = get_unselected_mutation_pets()
-            MutateBackupDropdown:Refresh(newList, true)
-        end
-    }
-)
 
  -- // Setup Data Mutasi // --
 local MutationOptions = {}
