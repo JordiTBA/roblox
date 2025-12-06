@@ -945,8 +945,10 @@ Tab:CreateToggle(
     }
 )
 -- // Backup Pet Tab // --
+-- // Backup Pet Tab // --
 
 local BackupDropdown
+local FullBackupList = {} -- Cache to store the full list for searching
 
 local function get_unselected_pets()
     local all_pets = refreshPetData()
@@ -967,32 +969,62 @@ local function get_unselected_pets()
         return {"No available backup pets"}
     end
 
+    -- Update the cache
+    FullBackupList = unselected
     return unselected
 end
 
-BackupDropdown =
-    Tab:CreateDropdown(
-    {
-        Name = "Backup Inventory (Unselected Pets)",
-        Options = {"Click Refresh to Load"},
-        CurrentOption = {},
-        MultipleOptions = true,
-        Flag = "BackupPetDropdown",
-        Callback = function(Option)
-            getgenv().backup = Option
-        end
-    }
-)
+-- Search Input Field
+Tab:CreateInput({
+    Name = "Search Backup List",
+    PlaceholderText = "Type to filter pets...",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local searchText = string.lower(Text)
+        local filteredList = {}
 
-Tab:CreateButton(
-    {
-        Name = "Refresh Backup List",
-        Callback = function()
-            local newList = get_unselected_pets()
-            BackupDropdown:Refresh(newList, true)
+        -- If search is empty, show full list
+        if searchText == "" then
+            BackupDropdown:Refresh(FullBackupList, true)
+            return
         end
-    }
-)
+
+        -- Filter logic
+        for _, petString in ipairs(FullBackupList) do
+            if string.find(string.lower(petString), searchText) then
+                table.insert(filteredList, petString)
+            end
+        end
+
+        if #filteredList == 0 then
+            table.insert(filteredList, "No matching pets found")
+        end
+
+        BackupDropdown:Refresh(filteredList, true) -- true keeps current selection
+    end
+})
+
+BackupDropdown = Tab:CreateDropdown({
+    Name = "Backup Inventory (Unselected Pets)",
+    Options = {"Click Refresh to Load"},
+    CurrentOption = {},
+    MultipleOptions = true,
+    Flag = "BackupPetDropdown",
+    Callback = function(Option)
+        getgenv().backup = Option
+    end
+})
+
+Tab:CreateButton({
+    Name = "Refresh Backup List",
+    Callback = function()
+        local newList = get_unselected_pets()
+        BackupDropdown:Refresh(newList, true)
+        
+        -- Reset search visualization if needed, or keep the full list in memory
+        FullBackupList = newList 
+    end
+})
 -- // Auto Mutate Tab // --
 local MutateTab = Window:CreateTab("Auto Mutate", 4483362458) -- Icon ID bisa diganti
 
@@ -1065,9 +1097,11 @@ MutateTab:CreateToggle(
         end
     }
 )
--- // Variable Tambahan untuk Mutation Backup // --
 
+MutateTab:CreateSection("Backup Settings")
 -- // Helper Function: Get Unselected Pets (Khusus Mutasi) // --
+local FullMutateBackupList = {} -- Cache variable for mutation backup search
+
 local function get_unselected_mutation_pets()
     local all_pets = refreshPetData() -- Ambil data terbaru
     local unselected = {}
@@ -1086,14 +1120,45 @@ local function get_unselected_mutation_pets()
     end
 
     if #unselected == 0 then
-        return {"No available backup pets"}
+        unselected = {"No available backup pets"}
     end
 
+    FullMutateBackupList = unselected -- Update the cache for the search function
     return unselected
 end
 
 -- // UI Element: Backup untuk Mutasi // --
 MutateTab:CreateSection("Backup Settings")
+
+-- Search Input for Mutation Backup
+MutateTab:CreateInput({
+    Name = "Search Mutation Backup",
+    PlaceholderText = "Type to filter pets...",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local searchText = string.lower(Text)
+        local filteredList = {}
+
+        -- If search is empty, show full list
+        if searchText == "" then
+            MutateBackupDropdown:Refresh(FullMutateBackupList, true)
+            return
+        end
+
+        -- Filter logic
+        for _, petString in ipairs(FullMutateBackupList) do
+            if string.find(string.lower(petString), searchText) then
+                table.insert(filteredList, petString)
+            end
+        end
+
+        if #filteredList == 0 then
+            table.insert(filteredList, "No matching pets found")
+        end
+
+        MutateBackupDropdown:Refresh(filteredList, true)
+    end
+})
 
 local MutateBackupDropdown
 MutateBackupDropdown =
@@ -1120,6 +1185,7 @@ MutateTab:CreateButton(
         end
     }
 )
+
  -- // Setup Data Mutasi // --
 local MutationOptions = {}
 getgenv().MutationNameMap = {} -- Mapping: Nama Mutasi -> ID (Untuk Logic nanti)
